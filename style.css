@@ -1268,20 +1268,20 @@ input[type=number] {
 .nota-print-header {
   display: flex;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 18px;
+  gap: 14px;
+  margin-bottom: 16px;
   border-bottom: 2px solid #111827;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
 }
 
 .nota-print-logo {
-  width: 58px;
-  height: 58px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
 }
 
 .nota-print-title-wrap h2 {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #000;

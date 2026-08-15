@@ -1500,7 +1500,7 @@ PENTING:
         ws.getRow(6).height = 17;
         ws.getRow(8).height = 20;
 
-        // Embed Tobacco Leaf Logo in cell A1:A3 directly from base64 (clean standard twoCellAnchor)
+        // Embed Tobacco Leaf Logo in cell A2:A2 (compact & proportional)
         const b64Data = (typeof window !== 'undefined' && window.TOBACCO_LOGO_BASE64) ? window.TOBACCO_LOGO_BASE64 : null;
         if (b64Data) {
           try {
@@ -1508,7 +1508,7 @@ PENTING:
               base64: b64Data,
               extension: 'png'
             });
-            ws.addImage(logoId, 'A1:A3');
+            ws.addImage(logoId, 'A2:A2');
           } catch (imgErr) {
             console.warn('[Nota] ExcelJS Logo Base64 error:', imgErr);
           }
@@ -1521,7 +1521,7 @@ PENTING:
                 buffer: logoBuffer,
                 extension: 'png'
               });
-              ws.addImage(logoId, 'A1:A3');
+              ws.addImage(logoId, 'A2:A2');
             }
           } catch (imgErr) {
             console.warn('[Nota] Logo image fetch skipped:', imgErr);
