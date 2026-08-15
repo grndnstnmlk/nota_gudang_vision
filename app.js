@@ -570,30 +570,34 @@ document.addEventListener('DOMContentLoaded', () => {
 Tugas Anda: Ekstrak seluruh baris data pada foto kertas berkas ini ke dalam format JSON Array murni.
 
 ATURAN STRUKTUR KOLOM & POLA TULISAN TANGAN:
-1. "no": Nomor urut baris (misal: 122, 123, 124, 125... atau 301, 302...).
-2. "gl": 
-   - Periksa margin kiri di luar tabel dan di dalam baris. 
-   - Jika ada tulisan "GL" atau "gl" (baik di luar tabel sebelah kiri no/nama, atau di dalam kolom), isi "gl". Jika tidak ada, isi "".
-3. "gt": 
-   - Jika ada tulisan "GT" atau "gt" pada baris tersebut, isi "GT". Jika tidak ada, isi "".
-4. "nama": 
-   - Berisi nama petani/penjual (misal: "AMIR", "H. MAHFUD", "Bahrudin", "H. HANAN"), tanggal (misal: "(10/8/26)", "(9/8 26)"), atau alamat (misal: "KADUR").
-   - Jika baris tersebut HANYA berisi tulisan "GL" atau "GT" tanpa nama orang, kosongkan "nama": "" (karena kodenya sudah dipindah ke kolom gl/gt).
-5. "grade": Angka grade tembakau (misal: 68, 65, 60, 58, 57, 56, 55, 53, 52, 45, 42, 41, 40, 37, dll).
-6. "kg": Berat timbangan dengan pecahan desimal asli (misal: 47.5, 46.5, 45.4, 44.9, 40.4, 30.5, 38.5, 31.3, 30.0, 48.4).
+1. "no": Nomor urut baris (misal: 185, 186, 187, 200, 201... atau 125, 126...).
+2. "nama": 
+   - Berisi nama petani/penjual (misal: "KURDI", "H. HANAN", "ZAKIR", "AMIR", "H. MAHFUD", "Bahrudin"), tanggal (misal: "11/8/26", "(11/8 26)", "10/8/26"), atau alamat (misal: "KADUR").
+   - Jika baris tersebut hanya berupa coretan kode "G" / "GL" / "GT", kosongkan "nama": "".
+3. "gl": 
+   - Isi "gl" jika ada tulisan "G", "GL", atau "gl" (baik di margin kiri luar tabel, di kolom nama, atau di kolom khusus). Jika tidak, isi "".
+4. "gt": 
+   - Isi "GT" jika ada tulisan "GT" atau "gt". Jika tidak, isi "".
+5. "grade": Angka grade tembakau (misal: 48, 45, 46, 37, 32, 65, 57, 55, 61, 50, 43, dll).
+6. "kg": 
+   - Berat timbangan kotor WAJIB DITULIS LENGKAP DENGAN PECAHAN DESIMALNYA!
+   - Contoh: "45.5", "44.2", "42.2", "45.9", "38.1", "48.8", "44.5", "35.6", "35.5", "38.8", "37.2", "46.6", "47.8", "38.5", "29.4", "36.9", "34.0", "45.8", "46.7", "37.2", "38.1", "38.6".
+   - JANGAN dibulatkan dan JANGAN dihilangkan angka di belakang komanya!
 7. "brt_fix": 
-   - Kolom persis SETELAH kolom KG (pada lembar lama judul kolomnya bertuliskan "KET", pada lembar baru bertuliskan "BRT").
-   - Ini adalah angka berat bulat fisik tulisan tangan checker (misal: 47, 46, 44, 39, 30, 38, 45, 37, 28, dll).
-   - Masukkan angka tulisan tangan di kolom tersebut ke "brt_fix". Jika kosong di kertas, isi "".
-8. "ket": Catatan khusus seperti "ada bs", "BS - 20", "r", "l", atau coretan tambahan lainnya jika ada.
+   - Kolom persis SETELAH kolom KG (pada tabel tercetak sebagai kolom BRT atau KET).
+   - ATURAN MUTLAK:
+     * JIKA kolom BRT pada kertas TERISI angka tulisan tangan (misal: 45, 43, 41, 37, 35, 34, 32...), maka masukkan angka tersebut ke "brt_fix".
+     * JIKA kolom BRT pada kertas KOSONG / tidak ditulis (seperti pada beberapa baris), maka KOSONGKAN "brt_fix": "" (sistem akan menghitung otomatis).
+8. "ket": Catatan khusus jika ada (misal "ada bs", "- 2", "- 3", dll).
 
 PENTING:
 - Pastikan angka desimal KG terbaca sangat teliti (.0, .1, .2, .3, .4, .5, .6, .7, .8, .9).
 - Kembalikan HANYA format JSON valid tanpa kata pengantar apa pun, seperti:
 [
-  {"no": 125, "gl": "gl", "gt": "", "nama": "AMIR", "grade": "65", "kg": "40.4", "brt_fix": "39", "ket": ""},
-  {"no": 126, "gl": "gl", "gt": "", "nama": "(10/8/26)", "grade": "65", "kg": "30.5", "brt_fix": "30", "ket": ""},
-  {"no": 127, "gl": "gl", "gt": "", "nama": "", "grade": "65", "kg": "38.5", "brt_fix": "38", "ket": ""}
+  {"no": 185, "gl": "", "gt": "", "nama": "KURDI", "grade": "48", "kg": "45.5", "brt_fix": "45", "ket": ""},
+  {"no": 186, "gl": "", "gt": "", "nama": "(11/8 26)", "grade": "48", "kg": "44.2", "brt_fix": "43", "ket": ""},
+  {"no": 200, "gl": "", "gt": "", "nama": "H. HANAN", "grade": "65", "kg": "46.6", "brt_fix": "", "ket": ""},
+  {"no": 201, "gl": "", "gt": "", "nama": "11/8/26", "grade": "65", "kg": "47.8", "brt_fix": "", "ket": ""}
 ]`;
 
       // Helper function to query live available models from Google ModelService
@@ -838,16 +842,28 @@ PENTING:
       { no: 139, gl: 'gl', gt: '', nama: '(10/8/26)', grade: '62', harga: 61000, kg: '50.3', brt: 50, brt_fix: '50', net: 48, ket: '' },
       { no: 142, gl: 'gl', gt: '', nama: 'Bahrudin', grade: '40', harga: 39000, kg: '38.3', brt: 37, brt_fix: '37', net: 35, ket: '' },
       { no: 143, gl: 'gl', gt: '', nama: '', grade: '40', harga: 39000, kg: '41.7', brt: 41, brt_fix: '41', net: 39, ket: '' },
-      { no: 148, gl: 'gl', gt: '', nama: 'H. HANAN', grade: '55', harga: 54000, kg: '31.5', brt: 30, brt_fix: '30', net: 28, ket: '' },
-      { no: 149, gl: 'gl', gt: '', nama: '(10/8/26)', grade: '63', harga: 62000, kg: '45.6', brt: 45, brt_fix: '45', net: 43, ket: '' },
-      { no: 301, gl: '', gt: '', nama: '', grade: '53', harga: 52000, kg: '31.3', brt: 30, brt_fix: '30', net: 27, ket: 'h' },
-      { no: 302, gl: '', gt: '', nama: '', grade: '45', harga: 44000, kg: '30.0', brt: 29, brt_fix: '29', net: 26, ket: '' },
-      { no: 303, gl: '', gt: '', nama: '', grade: '42', harga: 41000, kg: '48.4', brt: 47, brt_fix: '47', net: 44, ket: '' },
-      { no: 305, gl: '', gt: '', nama: '', grade: '56', harga: 55000, kg: '38.4', brt: 37, brt_fix: '37', net: 34, ket: 'r' }
+      // Dari Berkas Kurdi (185-199): BRT terisi tulisan tangan checker (masuk ke BRT FIX)
+      { no: 185, gl: '', gt: '', nama: 'KURDI', grade: '48', harga: 47000, kg: '45.5', brt: 45, brt_fix: '45', net: 43, ket: '- 2' },
+      { no: 186, gl: '', gt: '', nama: '(11/8 26)', grade: '48', harga: 47000, kg: '44.2', brt: 43, brt_fix: '43', net: 41, ket: '- 2' },
+      { no: 187, gl: '', gt: '', nama: '', grade: '45', harga: 44000, kg: '42.2', brt: 41, brt_fix: '41', net: 39, ket: '- 2' },
+      { no: 188, gl: '', gt: '', nama: '', grade: '48', harga: 47000, kg: '42.2', brt: 41, brt_fix: '41', net: 39, ket: '- 2' },
+      { no: 189, gl: '', gt: '', nama: '', grade: '48', harga: 47000, kg: '45.9', brt: 45, brt_fix: '45', net: 43, ket: '- 2' },
+      { no: 190, gl: '', gt: '', nama: '', grade: '45', harga: 44000, kg: '38.1', brt: 37, brt_fix: '37', net: 35, ket: '- 2' },
+      { no: 194, gl: 'gl', gt: '', nama: '', grade: '32', harga: 31000, kg: '35.5', brt: 35, brt_fix: '35', net: 33, ket: '- 3' },
+      { no: 195, gl: 'gl', gt: '', nama: '', grade: '32', harga: 31000, kg: '38.8', brt: 38, brt_fix: '38', net: 36, ket: '- 3' },
+      // Dari Berkas H. Hanan & Zakir (200-210): BRT KOSONG di kertas (BRT FIX kosong, BRT dihitung otomatis lewat formula)
+      { no: 200, gl: '', gt: '', nama: 'H. HANAN', grade: '65', harga: 64000, kg: '46.6', brt: 46, brt_fix: '', net: 43, ket: '' },
+      { no: 201, gl: '', gt: '', nama: '11/8/26', grade: '65', harga: 64000, kg: '47.8', brt: 47, brt_fix: '', net: 44, ket: '' },
+      { no: 202, gl: '', gt: '', nama: '(1)', grade: '61', harga: 60000, kg: '38.5', brt: 38, brt_fix: '', net: 35, ket: '' },
+      { no: 203, gl: 'gl', gt: '', nama: '', grade: '50', harga: 49000, kg: '29.4', brt: 28, brt_fix: '', net: 26, ket: '' },
+      { no: 204, gl: '', gt: '', nama: '', grade: '57', harga: 56000, kg: '36.9', brt: 37, brt_fix: '37', net: 34, ket: '' },
+      { no: 205, gl: '', gt: '', nama: '', grade: '55', harga: 54000, kg: '34.0', brt: 34, brt_fix: '', net: 31, ket: '' },
+      { no: 206, gl: '', gt: '', nama: 'ZAKIR', grade: '37', harga: 36000, kg: '45.8', brt: 45, brt_fix: '', net: 42, ket: '' },
+      { no: 207, gl: '', gt: '', nama: '11/8/26', grade: '37', harga: 36000, kg: '46.7', brt: 46, brt_fix: '', net: 43, ket: '' }
     ];
 
     renderGridTable();
-    showToast('Sampel Berkas Fisik Tembakau (Amir, Mahfud, Bahrudin, Hanan) berhasil dimuat!', 'success');
+    showToast('Sampel Berkas Tembakau (Kurdi, H. Hanan, Zakir) berhasil dimuat!', 'success');
   });
 
   // =========================================================================
