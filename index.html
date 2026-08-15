@@ -184,26 +184,49 @@
 
         <!-- Configuration Bar for Generating Nota -->
         <div class="nota-settings-bar">
-          <div class="settings-title">
-            <i data-lucide="receipt"></i>
-            <span>Pengaturan Nota Pembelian</span>
-          </div>
-          <div class="settings-grid">
-            <div class="setting-item">
-              <label for="inputNotaRange">Rentang NO:</label>
-              <input type="text" id="inputNotaRange" value="SEMUA" placeholder="Contoh: 1-35 atau 36-47 atau SEMUA" />
+          <div class="settings-header-wrap">
+            <div class="settings-title">
+              <i data-lucide="receipt"></i>
+              <span>Pengaturan & Pemilihan Nomor Nota</span>
             </div>
+            <div class="nota-quick-presets" id="notaPresetsContainer">
+              <!-- Dynamically populated with quick batch chips e.g. [Semua], [1-9], [185-199 (KURDI)] -->
+            </div>
+          </div>
+
+          <div class="settings-grid">
+            <div class="setting-item range-inputs-wrap">
+              <label>Pilih Nomor Baris Nota:</label>
+              <div class="range-dual-inputs">
+                <input type="text" id="inputNotaFrom" placeholder="Dari (misal: 1)" title="Nomor awal" />
+                <span class="range-sep">s/d</span>
+                <input type="text" id="inputNotaTo" placeholder="Sampai (misal: 9)" title="Nomor akhir" />
+                <button type="button" id="btnApplyAllRange" class="btn-secondary btn-xs" title="Pilih Seluruh Baris">Semua</button>
+              </div>
+              <input type="hidden" id="inputNotaRange" value="SEMUA" />
+            </div>
+
             <div class="setting-item">
               <label for="inputNotaNama">Nama Penjual:</label>
-              <input type="text" id="inputNotaNama" placeholder="Otomatis baris 1 / isi manual" />
+              <input type="text" id="inputNotaNama" placeholder="Otomatis terisi dari baris terpilih" />
             </div>
             <div class="setting-item">
               <label for="inputNotaTanggal">Tanggal:</label>
-              <input type="text" id="inputNotaTanggal" placeholder="Otomatis baris 2 / isi manual" />
+              <input type="text" id="inputNotaTanggal" placeholder="Otomatis terisi tanggal baris" />
             </div>
             <div class="setting-item">
               <label for="inputNotaAlamat">Alamat:</label>
-              <input type="text" id="inputNotaAlamat" placeholder="Otomatis baris 3 / isi manual" />
+              <input type="text" id="inputNotaAlamat" placeholder="Otomatis terisi alamat" />
+            </div>
+          </div>
+
+          <!-- Live Nota Selected Summary Banner -->
+          <div class="nota-live-preview" id="notaLivePreview">
+            <div class="preview-tag"><i data-lucide="check-circle-2"></i> <span id="notaPreviewText">Memilih Semua Baris</span></div>
+            <div class="preview-metrics">
+              <span>Total Bal: <strong id="notaPreviewBal">0</strong></span>
+              <span>Total NET: <strong id="notaPreviewNet">0 kg</strong></span>
+              <span class="preview-highlight">Total Nota: <strong id="notaPreviewRp">Rp 0</strong></span>
             </div>
           </div>
         </div>

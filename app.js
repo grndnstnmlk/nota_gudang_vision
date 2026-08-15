@@ -504,6 +504,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (statTotalBrt) statTotalBrt.textContent = Math.round(totalBrt);
     if (statTotalNet) statTotalNet.textContent = Math.round(totalNet);
     if (statTotalRp) statTotalRp.textContent = `Rp ${Math.round(totalRp).toLocaleString('id-ID')}`;
+
+    renderNotaPresets();
+    updateNotaLiveSummary(false);
   }
 
   btnAddRow.addEventListener('click', () => {
@@ -867,6 +870,185 @@ PENTING:
   });
 
   // =========================================================================
+  // Nota Number Range & Live Preview Management
+  // =========================================================================
+  const inputNotaFrom = document.getElementById('inputNotaFrom');
+  const inputNotaTo = document.getElementById('inputNotaTo');
+  const btnApplyAllRange = document.getElementById('btnApplyAllRange');
+  const notaPresetsContainer = document.getElementById('notaPresetsContainer');
+  const notaPreviewText = document.getElementById('notaPreviewText');
+  const notaPreviewBal = document.getElementById('notaPreviewBal');
+  const notaPreviewNet = document.getElementById('notaPreviewNet');
+  const notaPreviewRp = document.getElementById('notaPreviewRp');
+
+  function getSelectedNotaRows() {
+    if (tobaccoData.length === 0) return { rows: [], from: null, to: null, label: 'Kosong' };
+
+    const fromVal = inputNotaFrom ? parseInt(inputNotaFrom.value.trim(), 10) : NaN;
+    const toVal = inputNotaTo ? parseInt(inputNotaTo.value.trim(), 10) : NaN;
+
+    if (!isNaN(fromVal) && !isNaN(toVal)) {
+      const minNo = Math.min(fromVal, toVal);
+      const maxNo = Math.max(fromVal, toVal);
+      const filtered = tobaccoData.filter(r => {
+        const n = parseInt(r.no, 10);
+        return !isNaN(n) && n >= minNo && n <= maxNo;
+      });
+      return { rows: filtered, from: minNo, to: maxNo, label: `No. ${minNo} s/d ${maxNo}` };
+    } else if (!isNaN(fromVal)) {
+      const filtered = tobaccoData.filter(r => parseInt(r.no, 10) >= fromVal);
+      return { rows: filtered, from: fromVal, to: null, label: `Mulai No. ${fromVal}` };
+    } else if (!isNaN(toVal)) {
+      const filtered = tobaccoData.filter(r => parseInt(r.no, 10) <= toVal);
+      return { rows: filtered, from: null, to: toVal, label: `Sampai No. ${toVal}` };
+    }
+
+    return { rows: [...tobaccoData], from: null, to: null, label: 'Semua Baris' };
+  }
+
+  function updateNotaLiveSummary(autoFillHeaders = true) {
+    const { rows, label } = getSelectedNotaRows();
+
+    let totalNet = 0;
+    let totalRp = 0;
+    let autoNama = '';
+    let autoTanggal = '';
+    let autoAlamat = '';
+
+    rows.forEach(r => {
+      const n = parseFloat(r.net) || 0;
+      const h = parseFloat(r.harga) || 0;
+      totalNet += n;
+      totalRp += (n * h);
+
+      const val = String(r.nama || '').trim();
+      if (val) {
+        if (!autoNama) {
+          autoNama = val;
+        } else if (!autoTanggal && (val.includes('/') || val.includes('-') || /\d{1,2}\s+[A-Za-z]+/.test(val))) {
+          autoTanggal = val.replace(/[()]/g, '').trim();
+        } else if (!autoAlamat) {
+          autoAlamat = val;
+        }
+      }
+    });
+
+    if (notaPreviewText) notaPreviewText.textContent = `Memilih ${label} (${rows.length} Bal)`;
+    if (notaPreviewBal) notaPreviewBal.textContent = rows.length;
+    if (notaPreviewNet) notaPreviewNet.textContent = `${Math.round(totalNet)} kg`;
+    if (notaPreviewRp) notaPreviewRp.textContent = `Rp ${Math.round(totalRp).toLocaleString('id-ID')}`;
+
+    if (autoFillHeaders) {
+      if (inputNotaNama && !inputNotaNama.dataset.userEdited) inputNotaNama.value = autoNama || '';
+      if (inputNotaTanggal && !inputNotaTanggal.dataset.userEdited) inputNotaTanggal.value = autoTanggal || '';
+      if (inputNotaAlamat && !inputNotaAlamat.dataset.userEdited) inputNotaAlamat.value = autoAlamat || '';
+    }
+  }
+
+  function renderNotaPresets() {
+    if (!notaPresetsContainer) return;
+    notaPresetsContainer.innerHTML = '';
+    if (tobaccoData.length === 0) return;
+
+    // Detect clusters / batches based on filled names or contiguous ranges
+    const batches = [];
+    let currentBatch = null;
+
+    tobaccoData.forEach(r => {
+      const num = parseInt(r.no, 10);
+      const name = String(r.nama || '').trim();
+      const isHeaderName = name && !name.includes('/') && !name.includes('-') && !/^\d+$/.test(name) && !['gl', 'gt'].includes(name.toLowerCase());
+
+      if (isHeaderName || !currentBatch) {
+        if (currentBatch && currentBatch.items.length > 0) {
+          batches.push(currentBatch);
+        }
+        currentBatch = {
+          name: isHeaderName ? name : (currentBatch ? currentBatch.name : 'Kelompok'),
+          startNo: num || 1,
+          endNo: num || 1,
+          items: [r]
+        };
+      } else {
+        currentBatch.endNo = num || currentBatch.endNo;
+        currentBatch.items.push(r);
+      }
+    });
+    if (currentBatch && currentBatch.items.length > 0) {
+      batches.push(currentBatch);
+    }
+
+    // 1. "Semua" button chip
+    const allChip = document.createElement('button');
+    allChip.type = 'button';
+    allChip.className = 'preset-chip active';
+    allChip.innerHTML = '<i data-lucide="layers"></i> Semua';
+    allChip.addEventListener('click', () => {
+      if (inputNotaFrom) inputNotaFrom.value = '';
+      if (inputNotaTo) inputNotaTo.value = '';
+      document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+      allChip.classList.add('active');
+      updateNotaLiveSummary(true);
+    });
+    notaPresetsContainer.appendChild(allChip);
+
+    // 2. Batch chips per detected name
+    batches.forEach(b => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'preset-chip';
+      const labelName = b.name.length > 12 ? b.name.substring(0, 10) + '..' : b.name;
+      chip.innerHTML = `${labelName} (${b.startNo}-${b.endNo})`;
+      chip.addEventListener('click', () => {
+        if (inputNotaFrom) inputNotaFrom.value = b.startNo;
+        if (inputNotaTo) inputNotaTo.value = b.endNo;
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        if (inputNotaNama) inputNotaNama.dataset.userEdited = '';
+        if (inputNotaTanggal) inputNotaTanggal.dataset.userEdited = '';
+        updateNotaLiveSummary(true);
+        showToast(`Memilih Nota No. ${b.startNo} s/d ${b.endNo} (${b.name})`, 'info', 3000);
+      });
+      notaPresetsContainer.appendChild(chip);
+    });
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  [inputNotaFrom, inputNotaTo].forEach(inp => {
+    if (inp) {
+      inp.addEventListener('input', () => {
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        if (inputNotaNama) inputNotaNama.dataset.userEdited = '';
+        if (inputNotaTanggal) inputNotaTanggal.dataset.userEdited = '';
+        updateNotaLiveSummary(true);
+      });
+    }
+  });
+
+  [inputNotaNama, inputNotaTanggal, inputNotaAlamat].forEach(inp => {
+    if (inp) {
+      inp.addEventListener('input', () => {
+        inp.dataset.userEdited = 'true';
+      });
+    }
+  });
+
+  if (btnApplyAllRange) {
+    btnApplyAllRange.addEventListener('click', () => {
+      if (inputNotaFrom) inputNotaFrom.value = '';
+      if (inputNotaTo) inputNotaTo.value = '';
+      document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+      const firstChip = document.querySelector('.preset-chip');
+      if (firstChip) firstChip.classList.add('active');
+      if (inputNotaNama) inputNotaNama.dataset.userEdited = '';
+      if (inputNotaTanggal) inputNotaTanggal.dataset.userEdited = '';
+      updateNotaLiveSummary(true);
+      showToast('Memilih seluruh baris data', 'info', 2000);
+    });
+  }
+
+  // =========================================================================
   // 1-Click Excel Exporters (SheetJS)
   // =========================================================================
   btnExportBukuSortir.addEventListener('click', () => {
@@ -918,29 +1100,14 @@ PENTING:
       return;
     }
 
-    const rangeVal = (inputNotaRange ? inputNotaRange.value : 'SEMUA').trim();
-    let filteredRows = [...tobaccoData];
-    let startNo = null;
-    let endNo = null;
-
-    if (rangeVal && rangeVal.toUpperCase() !== 'SEMUA') {
-      const match = rangeVal.match(/(\d+)\s*[-–]\s*(\d+)/);
-      if (match) {
-        startNo = parseInt(match[1], 10);
-        endNo = parseInt(match[2], 10);
-        filteredRows = tobaccoData.filter(r => {
-          const n = parseInt(r.no, 10);
-          return !isNaN(n) && n >= startNo && n <= endNo;
-        });
-      }
-    }
+    const { rows: filteredRows, from: startNo, to: endNo, label } = getSelectedNotaRows();
 
     if (filteredRows.length === 0) {
-      showToast(`Tidak ada data di nomor rentang ${rangeVal}`, 'error');
+      showToast(`Tidak ada data baris pada rentang ${label}`, 'error');
       return;
     }
 
-    // Auto discover headers
+    // Auto discover headers from the filtered subset
     let autoNama = '';
     let autoTanggal = '';
     let autoAlamat = '';
@@ -1021,10 +1188,11 @@ PENTING:
       { wch: 18 }
     ];
 
-    const rangeTag = startNo && endNo ? `${startNo}-${endNo}` : 'Lengkap';
+    const rangeTag = startNo && endNo ? `${startNo}-${endNo}` : (startNo ? `Mulai-${startNo}` : 'Lengkap');
     XLSX.utils.book_append_sheet(wb, ws, `Nota ${rangeTag}`);
 
-    const filename = `Nota_${rangeTag}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const safeName = finalNama.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Nota_${safeName}_${rangeTag}_${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(wb, filename);
     showToast(`Nota Pembelian berhasil dibuat -> ${filename} (${filteredRows.length} bal)`, 'success', 5000);
   });
