@@ -921,14 +921,96 @@ PENTING:
     return { rows: [...tobaccoData], from: null, to: null, label: 'Semua Baris' };
   }
 
+  const BULAN_INDO = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  const BULAN_MAP = {
+    "januari": 1, "februari": 2, "maret": 3, "april": 4, "mei": 5, "juni": 6,
+    "juli": 7, "agustus": 8, "september": 9, "oktober": 10, "november": 11, "desember": 12,
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "agt": 8, "agu": 8, "sep": 9, "okt": 10, "oct": 10, "nov": 11, "des": 12, "dec": 12
+  };
+
+  function isDateToken(v) {
+    if (!v) return false;
+    const s = String(v).trim().replace(/[()]/g, '');
+    if (/^\d{1,2}\s*[/\-.]\s*\d{1,2}\s*[/\-.]\s*\d{2,4}$/.test(s)) return true;
+    const match = s.match(/^\d{1,2}\s+([A-Za-z]+)\s+(\d{2,4})$/);
+    return !!(match && BULAN_MAP[match[1].toLowerCase()]);
+  }
+
+  function formatIndoDate(v) {
+    if (!v) return '';
+    const s = String(v).trim().replace(/[()]/g, '');
+    const numMatch = s.match(/^(\d{1,2})\s*[/\-.]\s*(\d{1,2})\s*[/\-.]\s*(\d{2,4})$/);
+    if (numMatch) {
+      const d = parseInt(numMatch[1], 10);
+      let mth = parseInt(numMatch[2], 10);
+      let y = parseInt(numMatch[3], 10);
+      if (y < 100) y += 2000;
+      mth = Math.min(Math.max(mth, 1), 12);
+      return `${d} ${BULAN_INDO[mth]} ${y}`;
+    }
+    const textMatch = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})$/);
+    if (textMatch && BULAN_MAP[textMatch[2].toLowerCase()]) {
+      const d = parseInt(textMatch[1], 10);
+      const mth = BULAN_MAP[textMatch[2].toLowerCase()];
+      let y = parseInt(textMatch[3], 10);
+      if (y < 100) y += 2000;
+      return `${d} ${BULAN_INDO[mth]} ${y}`;
+    }
+    return s;
+  }
+
+  function detectInfo(rows, startNo) {
+    const items = [];
+    rows.forEach(r => {
+      const v = String(r.nama || '').trim();
+      if (v && !['gl', 'gt'].includes(v.toLowerCase())) {
+        items.push({ no: r.no, text: v, isDate: isDateToken(v) });
+      }
+    });
+
+    const dateIdx = items.findIndex(item => item.isDate);
+    let nama = '';
+    let tanggal = '';
+    let alamat = '';
+
+    if (dateIdx !== -1) {
+      tanggal = formatIndoDate(items[dateIdx].text);
+      for (let i = dateIdx - 1; i >= 0; i--) {
+        if (!items[i].isDate) { nama = items[i].text; break; }
+      }
+      for (let i = dateIdx + 1; i < items.length; i++) {
+        if (!items[i].isDate) { alamat = items[i].text; break; }
+      }
+    } else {
+      const texts = items.filter(item => !item.isDate);
+      if (texts.length > 0) nama = texts[0].text;
+      if (texts.length > 1) alamat = texts[1].text;
+    }
+
+    if (!nama && startNo !== null && tobaccoData.length > 0) {
+      const allBefore = tobaccoData.filter(r => parseInt(r.no, 10) < startNo);
+      for (let i = allBefore.length - 1; i >= 0; i--) {
+        const v = String(allBefore[i].nama || '').trim();
+        if (v && !isDateToken(v) && !['gl', 'gt'].includes(v.toLowerCase())) {
+          nama = v;
+          break;
+        }
+      }
+    }
+
+    return {
+      nama: nama || '',
+      tanggal: tanggal || '',
+      alamat: alamat || ''
+    };
+  }
+
   function updateNotaLiveSummary(autoFillHeaders = true) {
-    const { rows, label } = getSelectedNotaRows();
+    const { rows, from: startNo, label } = getSelectedNotaRows();
 
     let totalNet = 0;
     let sumJumlah = 0;
-    let autoNama = '';
-    let autoTanggal = '';
-    let autoAlamat = '';
     let gtCount = 0;
 
     rows.forEach(r => {
@@ -940,18 +1022,12 @@ PENTING:
       if (String(r.gt || '').toUpperCase().trim() === 'GT' || String(r.ket || '').toUpperCase().includes('GT')) {
         gtCount++;
       }
-
-      const val = String(r.nama || '').trim();
-      if (val) {
-        if (!autoNama) {
-          autoNama = val;
-        } else if (!autoTanggal && (val.includes('/') || val.includes('-') || /\d{1,2}\s+[A-Za-z]+/.test(val))) {
-          autoTanggal = val.replace(/[()]/g, '').trim();
-        } else if (!autoAlamat) {
-          autoAlamat = val;
-        }
-      }
     });
+
+    const info = detectInfo(rows, startNo);
+    const autoNama = info.nama;
+    const autoTanggal = info.tanggal;
+    const autoAlamat = info.alamat;
 
     const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
     const koliVal = rows.length * 5000;
@@ -1134,26 +1210,11 @@ PENTING:
       return;
     }
 
-    // Auto discover headers from the filtered subset
-    let autoNama = '';
-    let autoTanggal = '';
-    let autoAlamat = '';
-
-    for (let i = 0; i < filteredRows.length; i++) {
-      const val = String(filteredRows[i].nama || '').trim();
-      if (!val) continue;
-      if (!autoNama) {
-        autoNama = val;
-      } else if (!autoTanggal && (val.includes('/') || val.includes('-') || /\d{1,2}\s+[A-Za-z]+/.test(val))) {
-        autoTanggal = val.replace(/[()]/g, '').trim();
-      } else if (!autoAlamat) {
-        autoAlamat = val;
-      }
-    }
-
-    const finalNama = (inputNotaNama && inputNotaNama.value.trim()) || autoNama || 'Nama Penjual';
-    const finalTanggal = (inputNotaTanggal && inputNotaTanggal.value.trim()) || autoTanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    const finalAlamat = (inputNotaAlamat && inputNotaAlamat.value.trim()) || autoAlamat || 'Pegantenan';
+    // Auto discover headers from the filtered subset using Python-matching detectInfo
+    const info = detectInfo(filteredRows, startNo);
+    const finalNama = (inputNotaNama && inputNotaNama.value.trim()) || info.nama || 'Nama Penjual';
+    const finalTanggal = (inputNotaTanggal && inputNotaTanggal.value.trim()) || info.tanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const finalAlamat = (inputNotaAlamat && inputNotaAlamat.value.trim()) || info.alamat || 'Pegantenan';
 
     // Build Exact Layout
     // Row 1: Logo & Title
