@@ -1115,3 +1115,221 @@ input[type=number] {
     display: none;
   }
 }
+
+/* =========================================================================
+   Print & A4 Sheet Styling (Pas Kertas A4 & Bergaris Penuh)
+   ========================================================================= */
+.modal-xl {
+  align-items: flex-start;
+  padding: 1.5rem 1rem;
+}
+
+.modal-xl .modal-content {
+  max-width: 900px;
+  width: 100%;
+  max-height: 94vh;
+}
+
+.print-modal-body {
+  background: #2a2c38;
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.btn-print-cta {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-print-cta:hover {
+  background: rgba(16, 185, 129, 0.25) !important;
+  border-color: #34d399 !important;
+}
+
+/* A4 Sheet Paper Model */
+.a4-sheet {
+  width: 100%;
+  max-width: 780px;
+  background: #ffffff;
+  color: #111827;
+  padding: 30px 35px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.nota-print-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 18px;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 12px;
+}
+
+.nota-print-logo {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+}
+
+.nota-print-title-wrap h2 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #000;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.nota-print-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.identity-row {
+  display: flex;
+}
+
+.identity-lbl {
+  width: 95px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.identity-val {
+  font-weight: 600;
+  color: #000;
+}
+
+/* Print Table with Crisp Solid Black Borders */
+.nota-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.nota-print-table th,
+.nota-print-table td {
+  border: 1.5px solid #000000 !important;
+  padding: 5px 8px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #000;
+}
+
+.nota-print-table th {
+  background: #f3f4f6;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.nota-print-table td.align-right {
+  text-align: right;
+}
+
+.nota-print-table tr.footer-row td {
+  font-weight: 700;
+}
+
+.nota-print-table tr.total-row td {
+  font-size: 14px;
+  font-weight: 800;
+  background: #f9fafb;
+}
+
+/* Signatures Section */
+.nota-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+  padding: 0 40px;
+}
+
+.sig-box {
+  text-align: center;
+  width: 160px;
+}
+
+.sig-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 50px;
+  color: #374151;
+}
+
+.sig-line {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* Native Print Output (A4 Portrait) */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  #printNotaModal,
+  #printNotaModal .print-modal-content,
+  #printNotaModal .print-modal-body,
+  #printableNotaSheet,
+  #printableNotaSheet * {
+    visibility: visible !important;
+  }
+  #printNotaModal {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    z-index: 99999 !important;
+  }
+  .modal-backdrop {
+    display: none !important;
+  }
+  .print-modal-content {
+    box-shadow: none !important;
+    border: none !important;
+    background: #fff !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  .print-modal-body {
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+  .a4-sheet {
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+}

@@ -1341,11 +1341,28 @@ PENTING:
 
     ws['!cols'] = [
       { wch: 14 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 16 },
-      { wch: 20 }
+      { wch: 11 },
+      { wch: 11 },
+      { wch: 15 },
+      { wch: 18 }
     ];
+
+    // Setup print fit to 1-page A4 Portrait
+    ws['!pageSetup'] = {
+      orientation: 'portrait',
+      paperSize: 9, // A4
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0
+    };
+    ws['!margins'] = {
+      left: 0.5,
+      right: 0.5,
+      top: 0.5,
+      bottom: 0.5,
+      header: 0.2,
+      footer: 0.2
+    };
 
     const rangeTag = startNo && endNo ? `${startNo}-${endNo}` : (startNo ? `Mulai-${startNo}` : 'Lengkap');
     XLSX.utils.book_append_sheet(wb, ws, `Nota ${rangeTag}`);
@@ -1356,8 +1373,199 @@ PENTING:
     showToast(`Nota Pembelian berhasil dibuat -> ${filename} (${filteredRows.length} bal)`, 'success', 5000);
   });
 
+  // =========================================================================
+  // Print Nota Modal (A4 Ready with Tobacco Logo & Solid Borders)
+  // =========================================================================
+  const btnOpenPrintNota = document.getElementById('btnOpenPrintNota');
+  const printNotaModal = document.getElementById('printNotaModal');
+  const printModalBackdrop = document.getElementById('printModalBackdrop');
+  const btnClosePrintModal = document.getElementById('btnClosePrintModal');
+  const btnClosePrintModalBtn = document.getElementById('btnClosePrintModalBtn');
+  const btnExecutePrint = document.getElementById('btnExecutePrint');
+  const btnDownloadFromPrint = document.getElementById('btnDownloadFromPrint');
+  const printableNotaSheet = document.getElementById('printableNotaSheet');
+
+  function renderPrintableSheet() {
+    if (!printableNotaSheet) return;
+    const { rows: filteredRows, from: startNo } = getSelectedNotaRows();
+
+    if (filteredRows.length === 0) {
+      showToast('Tidak ada data baris untuk dicetak', 'error');
+      return false;
+    }
+
+    const info = detectInfo(filteredRows, startNo);
+    const finalNama = (inputNotaNama && inputNotaNama.value.trim()) || info.nama || 'Nama Penjual';
+    const finalTanggal = (inputNotaTanggal && inputNotaTanggal.value.trim()) || info.tanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const finalAlamat = (inputNotaAlamat && inputNotaAlamat.value.trim()) || info.alamat || 'Pegantenan';
+
+    let sumBruto = 0;
+    let sumNetto = 0;
+    let sumJumlah = 0;
+    let gtCount = 0;
+
+    let rowsHtml = '';
+    filteredRows.forEach((r, idx) => {
+      let noGud = String(r.no || (idx + 1));
+      const ketStr = String(r.ket || '').toLowerCase();
+      const gradeStr = String(r.grade || '').toLowerCase();
+      const isBS = ketStr.includes('bs') || gradeStr.includes('bs');
+
+      if (isBS) {
+        noGud = r.no ? `${r.no} BS` : 'BS';
+      } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
+        noGud = `GT ${r.no}`;
+        gtCount++;
+      } else if (String(r.gl || '').toLowerCase().trim() === 'gl') {
+        noGud = `GL ${r.no}`;
+      }
+
+      const brt = Number(r.brt) || 0;
+      const net = Number(r.net) || 0;
+      const hrg = Number(r.harga) || 0;
+      const jml = net * hrg;
+
+      sumBruto += brt;
+      sumNetto += net;
+      sumJumlah += jml;
+
+      rowsHtml += `
+        <tr>
+          <td>${escapeHtml(noGud)}</td>
+          <td>${brt}</td>
+          <td>${net}</td>
+          <td class="align-right">${hrg.toLocaleString('id-ID')}</td>
+          <td class="align-right">${jml.toLocaleString('id-ID')}</td>
+        </tr>
+      `;
+    });
+
+    const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
+    const koliVal = filteredRows.length * 5000;
+    const gtVal = gtCount * 65000;
+    const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
+
+    let gtRowHtml = '';
+    if (gtCount > 0) {
+      gtRowHtml = `
+        <tr class="footer-row">
+          <td colspan="3" style="border: none !important;"></td>
+          <td class="align-right">GT (${gtCount})</td>
+          <td class="align-right">Rp ${gtVal.toLocaleString('id-ID')}</td>
+        </tr>
+      `;
+    }
+
+    printableNotaSheet.innerHTML = `
+      <div class="nota-print-header">
+        <img src="logo.png" alt="Logo Tembakau" class="nota-print-logo" onerror="this.style.display='none'" />
+        <div class="nota-print-title-wrap">
+          <h2>NOTA PEMBELIAN TEMBAKAU 2026</h2>
+        </div>
+      </div>
+
+      <div class="nota-print-identity">
+        <div class="identity-row">
+          <span class="identity-lbl">Nama</span>
+          <span class="identity-val">: &nbsp; ${escapeHtml(finalNama)}</span>
+        </div>
+        <div class="identity-row">
+          <span class="identity-lbl">Alamat</span>
+          <span class="identity-val">: &nbsp; ${escapeHtml(finalAlamat)}</span>
+        </div>
+        <div class="identity-row">
+          <span class="identity-lbl">Tgl/Hr/Thn</span>
+          <span class="identity-val">: &nbsp; ${escapeHtml(finalTanggal)}</span>
+        </div>
+      </div>
+
+      <table class="nota-print-table">
+        <thead>
+          <tr>
+            <th style="width: 20%;">No. GUD</th>
+            <th style="width: 15%;">BRUTO</th>
+            <th style="width: 15%;">NETTO</th>
+            <th style="width: 22%;">HARGA</th>
+            <th style="width: 28%;">JUMLAH</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+          <tr class="footer-row">
+            <td colspan="3" style="border: none !important;"></td>
+            <td class="align-right">JUMLAH</td>
+            <td class="align-right">${sumJumlah.toLocaleString('id-ID')}</td>
+          </tr>
+          <tr class="footer-row">
+            <td colspan="3" style="border: none !important;"></td>
+            <td class="align-right">PPH 0,5%</td>
+            <td class="align-right">${pphVal.toLocaleString('id-ID')}</td>
+          </tr>
+          <tr class="footer-row">
+            <td colspan="3" style="border: none !important;"></td>
+            <td class="align-right">Koli</td>
+            <td class="align-right">Rp ${koliVal.toLocaleString('id-ID')}</td>
+          </tr>
+          ${gtRowHtml}
+          <tr class="total-row">
+            <td colspan="3" style="border: none !important;"></td>
+            <td class="align-right">TOTAL</td>
+            <td class="align-right">Rp ${totalBersih.toLocaleString('id-ID')}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="nota-signatures">
+        <div class="sig-box">
+          <div class="sig-title">Yang Menerima,</div>
+          <div class="sig-line">( ........................................ )</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-title">Penerima / Kasir,</div>
+          <div class="sig-line">( ........................................ )</div>
+        </div>
+      </div>
+    `;
+
+    return true;
+  }
+
+  if (btnOpenPrintNota) {
+    btnOpenPrintNota.addEventListener('click', () => {
+      if (tobaccoData.length === 0) {
+        showToast('Tidak ada data untuk dicetak', 'error');
+        return;
+      }
+      if (renderPrintableSheet()) {
+        printNotaModal.classList.add('active');
+        if (window.lucide) lucide.createIcons();
+      }
+    });
+  }
+
+  [btnClosePrintModal, btnClosePrintModalBtn, printModalBackdrop].forEach(el => {
+    if (el) {
+      el.addEventListener('click', () => {
+        printNotaModal.classList.remove('active');
+      });
+    }
+  });
+
+  if (btnExecutePrint) {
+    btnExecutePrint.addEventListener('click', () => {
+      window.print();
+    });
+  }
+
+  if (btnDownloadFromPrint) {
+    btnDownloadFromPrint.addEventListener('click', () => {
+      btnGenerateNota.click();
+    });
+  }
+
   function escapeHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
 });
+

@@ -24,8 +24,8 @@
   <header class="navbar">
     <div class="nav-container">
       <div class="brand">
-        <div class="brand-icon brand-logo-wrap">
-          <img src="logo.png" alt="Logo Tembakau" class="brand-logo-img" />
+        <div class="brand-icon">
+          <i data-lucide="sparkles"></i>
         </div>
         <div class="brand-text">
           <h1>Vision AI <span class="badge">Nota Tembakau</span></h1>
@@ -291,9 +291,13 @@
             <i data-lucide="file-spreadsheet"></i>
             <span>Unduh Excel Buku Sortir (.xlsx)</span>
           </button>
+          <button id="btnOpenPrintNota" class="btn-secondary btn-lg btn-print-cta" title="Tinjau & Cetak Nota Siap Print Kertas A4">
+            <i data-lucide="printer"></i>
+            <span>Cetak / Print Nota (A4)</span>
+          </button>
           <button id="btnGenerateNota" class="btn-primary btn-lg">
             <i data-lucide="receipt"></i>
-            <span>Eksekusi & Generate Nota (.xlsx)</span>
+            <span>Unduh Excel Nota (.xlsx)</span>
           </button>
         </div>
       </section>
@@ -370,6 +374,32 @@
           <i data-lucide="aperture"></i> Jepret Foto
         </button>
         <button id="btnCancelCamera" class="btn-secondary">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Print & Preview Nota (Pas Kertas A4 & Bergaris Penuh) -->
+  <div class="modal modal-xl" id="printNotaModal">
+    <div class="modal-backdrop" id="printModalBackdrop"></div>
+    <div class="modal-content print-modal-content">
+      <div class="modal-header no-print">
+        <h3><i data-lucide="printer"></i> Pratinjau Cetak Nota Pembelian (Kertas A4)</h3>
+        <button class="btn-icon-sm" id="btnClosePrintModal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body print-modal-body">
+        <!-- The Printable A4 Sheet Paper -->
+        <div class="a4-sheet" id="printableNotaSheet">
+          <!-- Dynamic Content rendered by JS -->
+        </div>
+      </div>
+      <div class="modal-footer no-print">
+        <button id="btnExecutePrint" class="btn-primary btn-lg">
+          <i data-lucide="printer"></i> Print Sekarang (Ctrl + P)
+        </button>
+        <button id="btnDownloadFromPrint" class="btn-secondary">
+          <i data-lucide="file-spreadsheet"></i> Unduh Excel (.xlsx)
+        </button>
+        <button id="btnClosePrintModalBtn" class="btn-secondary">Tutup</button>
       </div>
     </div>
   </div>
