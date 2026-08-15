@@ -623,14 +623,33 @@ PENTING:
       if (Array.isArray(parsedRows) && parsedRows.length > 0) {
         tobaccoData = parsedRows.map((r, i) => {
           const noVal = r.no ? Number(r.no) : (i + 1);
+
+          let glVal = String(r.gl || '').trim().toLowerCase();
+          let gtVal = String(r.gt || '').trim().toUpperCase();
+          let namaVal = String(r.nama || '').trim();
+
+          // Auto-detect if GL / GT was placed in the nama column
+          if (namaVal.toLowerCase() === 'gl' || /^gl\b/i.test(namaVal)) {
+            glVal = 'gl';
+            namaVal = namaVal.replace(/^gl\s*/i, '').trim();
+          }
+          if (namaVal.toUpperCase() === 'GT' || /^gt\b/i.test(namaVal)) {
+            gtVal = 'GT';
+            namaVal = namaVal.replace(/^gt\s*/i, '').trim();
+          }
+
+          if (glVal.includes('gl')) glVal = 'gl';
+          if (gtVal.includes('GT')) gtVal = 'GT';
+
           const brtVal = calc_brt(r.kg, r.brt_fix);
-          const netVal = calc_net(brtVal, r.gl);
+          const netVal = calc_net(brtVal, glVal);
           const hrgVal = calc_harga(r.grade);
+
           return {
             no: noVal,
-            gl: r.gl || '',
-            gt: r.gt || '',
-            nama: r.nama || '',
+            gl: glVal,
+            gt: gtVal,
+            nama: namaVal,
             grade: r.grade ? String(r.grade) : '',
             harga: hrgVal,
             kg: r.kg ? String(r.kg) : '',
