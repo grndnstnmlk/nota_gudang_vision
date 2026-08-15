@@ -117,7 +117,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getSavedModel() {
-    return localStorage.getItem(MODEL_STORAGE) || 'gemini-1.5-flash';
+    const saved = localStorage.getItem(MODEL_STORAGE);
+    if (!saved || saved === 'gemini-1.5-flash') {
+      return 'gemini-2.5-flash';
+    }
+    return saved;
   }
 
   function updateApiKeyIndicator() {
@@ -500,28 +504,80 @@ PENTING:
   {"no": 2, "gl": "", "gt": "", "nama": "(15/8/26)", "grade": "58", "kg": "40.0", "brt_fix": "", "ket": ""}
 ]`;
 
-      const requestBody = JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.0,
-          maxOutputTokens: 4096
+      // Build candidates list with automatic fallback
+      let initialModel = (model || '').replace(/^models\//, '').trim();
+      const modelCandidates = [
+        initialModel,
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash-002',
+        'gemini-1.5-flash-001',
+        'gemini-1.5-flash',
+        'gemini-2.0-flash-lite',
+        'gemini-1.5-pro'
+      ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+
+      let response = null;
+      let workingModel = null;
+      let lastError = null;
+
+      for (let i = 0; i < modelCandidates.length; i++) {
+        const candidate = modelCandidates[i];
+        try {
+          if (i > 0) {
+            progressStatus.textContent = `Mencoba model alternatif (${candidate})...`;
+          }
+
+          const requestBody = JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.0,
+              maxOutputTokens: 4096
+            }
+          });
+
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: requestBody
+          });
+
+          if (res.ok) {
+            response = res;
+            workingModel = candidate;
+            localStorage.setItem(MODEL_STORAGE, candidate);
+            console.log(`[Vision AI] Sukses terhubung menggunakan model: ${candidate}`);
+            break;
+          }
+
+          const errJson = await res.json().catch(() => ({}));
+          const errMsg = errJson.error?.message || `HTTP ${res.status}`;
+          lastError = new Error(errMsg);
+
+          // If model is not found / unsupported, continue trying next candidate
+          if (res.status === 404 || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not supported')) {
+            console.warn(`[Vision AI] Model ${candidate} tidak tersedia (${errMsg}), mencoba model cadangan berikutnya...`);
+            continue;
+          } else {
+            // If error is auth (bad key) or quota, stop immediately and report
+            throw lastError;
+          }
+        } catch (callErr) {
+          if (callErr.message && (callErr.message.includes('API_KEY_INVALID') || callErr.message.includes('quota') || callErr.message.includes('RESOURCE_EXHAUSTED'))) {
+            throw callErr;
+          }
+          lastError = callErr;
         }
-      });
+      }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: requestBody
-      });
-
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.error?.message || `HTTP ${response.status}`);
+      if (!response) {
+        throw lastError || new Error('Semua model Gemini Vision tidak dapat diakses. Pastikan API Key valid.');
       }
 
       progressBarFill.style.width = '85%';
