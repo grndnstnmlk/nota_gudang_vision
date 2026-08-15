@@ -85,16 +85,16 @@ Kolom standar Buku Sortir berurutan dari kiri ke kanan:
 ## 5. Aturan Khusus Tembakau BS (Barang Sortir)
 
 ### A. Identifikasi & Ekstraksi Grade
-- Tembakau BS di luar tabel diidentifikasi tanpa nomor urut fisik (`NO = "BS"`).
+- Tembakau BS di luar tabel diidentifikasi tanpa nomor urut fisik (`NO = "BS"` atau baris keterangan `BS`).
 - **Angka setelah kata BS adalah nilai GRADE-nya**:
   - `BS - 20` atau `BS 20` $\implies \text{GRADE} = 20$ (Harga = Rp 20.000).
   - `BS - 25` atau `BS-25` $\implies \text{GRADE} = 25$ (Harga = Rp 25.000).
 - Kolom `KET`: Diisi `"BS"` atau `"BS - 20"`.
 
-### B. Penggabungan Otomatis ke Nota Petani
-- Baris BS otomatis dicocokkan ke nama petani pemiliknya.
-- Pada kolom `No. GUD` di Nota, diberi nomor urut lanjutan + `BS`:
-  - Format: `[NO] BS` (contoh: bal utama 142..147 $\implies$ baris BS menjadi `148 BS`).
+### B. Penggabungan Otomatis ke Nama Terdekat di Atasnya
+- Baris BS **hanya dimasukkan ke nama petani yang berada tepat di atasnya** (nama terdekat di atas posisi catatan BS tersebut).
+- Pada kolom `No. GUD` di Nota Pembelian, **hanya ditulis teks `"BS"` murni tanpa nomor**:
+  - Kolom `No. GUD` $\implies$ **`"BS"`** (bukan `148 BS` atau angka lain, melainkan cukup `BS`).
 
 ---
 

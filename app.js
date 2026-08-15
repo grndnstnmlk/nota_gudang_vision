@@ -1128,18 +1128,37 @@ PENTING:
         return !isNaN(n) && n >= minNo && n <= maxNo;
       });
 
-      // Auto-detect farmer name for this range and bundle any separate BS row belonging to this farmer
+      // Auto-detect farmer name for this range and bundle any separate BS row whose closest preceding farmer matches this range
       const rangeInfo = detectInfo(filtered, minNo);
       const farmerName = (rangeInfo.nama || '').trim().toLowerCase();
 
       if (farmerName) {
-        // Find any BS rows outside the numeric range that match this farmer name
-        const extraBsRows = tobaccoData.filter(r => {
-          const n = parseInt(r.no, 10);
-          const isOutside = isNaN(n) || n < minNo || n > maxNo;
+        const extraBsRows = [];
+        tobaccoData.forEach((r, idx) => {
           const isBS = String(r.no || '').toLowerCase().includes('bs') || String(r.ket || '').toLowerCase().includes('bs');
+          if (!isBS) return;
+
+          const n = parseInt(r.no, 10);
+          const isInside = !isNaN(n) && n >= minNo && n <= maxNo;
+          if (isInside) return;
+
+          // Find the closest farmer name above this BS row
+          let closestFarmer = '';
+          for (let j = idx - 1; j >= 0; j--) {
+            const v = String(tobaccoData[j].nama || '').trim();
+            if (v && !isDateToken(v) && !['gl', 'gt'].includes(v.toLowerCase())) {
+              closestFarmer = v.toLowerCase();
+              break;
+            }
+          }
+
           const rName = String(r.nama || '').toLowerCase();
-          return isOutside && isBS && (rName.includes(farmerName) || farmerName.includes(rName.replace(/[()]/g, '').trim()));
+          const matches = (closestFarmer && (closestFarmer.includes(farmerName) || farmerName.includes(closestFarmer.replace(/[()]/g, '').trim()))) ||
+                          (rName && (rName.includes(farmerName) || farmerName.includes(rName.replace(/[()]/g, '').trim())));
+
+          if (matches) {
+            extraBsRows.push(r);
+          }
         });
         filtered = [...filtered, ...extraBsRows];
       }
@@ -1590,14 +1609,7 @@ PENTING:
           const isBS = ketStr.includes('bs') || noStr.includes('bs');
 
           if (isBS) {
-            const numVal = parseInt(r.no, 10);
-            if (!isNaN(numVal)) {
-              noGud = `${numVal} BS`;
-            } else {
-              const prevNums = filteredRows.map(x => parseInt(x.no, 10)).filter(x => !isNaN(x));
-              const baseNo = prevNums.length > 0 ? Math.max(...prevNums) + 1 : (idx + 1);
-              noGud = `${baseNo} BS`;
-            }
+            noGud = 'BS';
           } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
             noGud = `GT ${r.no}`;
             gtCount++;
@@ -1721,8 +1733,7 @@ PENTING:
       const isBS = ketStr.includes('bs') || noStr.includes('bs');
 
       if (isBS) {
-        const numVal = parseInt(r.no, 10);
-        noGud = !isNaN(numVal) ? `${numVal} BS` : `${idx + 1} BS`;
+        noGud = 'BS';
       } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
         noGud = `GT ${r.no}`;
         gtCount++;
@@ -1821,14 +1832,7 @@ PENTING:
       const isBS = ketStr.includes('bs') || noStr.includes('bs');
 
       if (isBS) {
-        const numVal = parseInt(r.no, 10);
-        if (!isNaN(numVal)) {
-          noGud = `${numVal} BS`;
-        } else {
-          const prevNums = filteredRows.map(x => parseInt(x.no, 10)).filter(x => !isNaN(x));
-          const baseNo = prevNums.length > 0 ? Math.max(...prevNums) + 1 : (idx + 1);
-          noGud = `${baseNo} BS`;
-        }
+        noGud = 'BS';
       } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
         noGud = `GT ${r.no}`;
         gtCount++;
