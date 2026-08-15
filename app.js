@@ -169,9 +169,92 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('API Key Vision AI berhasil disimpan!', 'success');
   });
 
+  const btnTestApiKey = document.getElementById('btnTestApiKey');
+  const testKeyStatus = document.getElementById('testKeyStatus');
+
+  async function fetchAvailableModelsFromGoogle(key) {
+    let discovered = [];
+    for (const ver of ['v1beta', 'v1']) {
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/${ver}/models?key=${key}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.models)) {
+            const valid = json.models
+              .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+              .map(m => m.name.replace(/^models\//, ''));
+            discovered.push(...valid);
+          }
+        }
+      } catch (e) {
+        console.warn(`Error probing ${ver}:`, e);
+      }
+    }
+
+    discovered = [...new Set(discovered)];
+    discovered.sort((a, b) => {
+      const aFlash = a.includes('flash') ? -1 : 1;
+      const bFlash = b.includes('flash') ? -1 : 1;
+      return aFlash - bFlash;
+    });
+
+    return discovered;
+  }
+
+  if (btnTestApiKey) {
+    btnTestApiKey.addEventListener('click', async () => {
+      const key = apiKeyInput.value.trim();
+      if (!key) {
+        showToast('Masukkan API Key terlebih dahulu untuk ditest', 'error');
+        return;
+      }
+
+      if (testKeyStatus) {
+        testKeyStatus.textContent = 'Memeriksa ke Google AI...';
+        testKeyStatus.style.color = 'var(--text-muted)';
+      }
+      btnTestApiKey.disabled = true;
+
+      try {
+        const models = await fetchAvailableModelsFromGoogle(key);
+        if (models.length > 0) {
+          if (testKeyStatus) {
+            testKeyStatus.textContent = `✅ API Key Valid (${models.length} model aktif)`;
+            testKeyStatus.style.color = 'var(--success)';
+          }
+
+          modelSelect.innerHTML = '';
+          models.forEach((m, idx) => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m + (idx === 0 ? ' (Direkomendasikan)' : '');
+            modelSelect.appendChild(opt);
+          });
+
+          showToast(`Berhasil menemukan ${models.length} model Google Gemini aktif!`, 'success');
+        } else {
+          if (testKeyStatus) {
+            testKeyStatus.textContent = '❌ Tidak ada model generateContent';
+            testKeyStatus.style.color = 'var(--danger)';
+          }
+          showToast('API Key tidak memiliki akses ke model Gemini generateContent', 'error');
+        }
+      } catch (err) {
+        if (testKeyStatus) {
+          testKeyStatus.textContent = `❌ ${err.message}`;
+          testKeyStatus.style.color = 'var(--danger)';
+        }
+        showToast(`Gagal: ${err.message}`, 'error');
+      } finally {
+        btnTestApiKey.disabled = false;
+      }
+    });
+  }
+
   btnClearApiKey.addEventListener('click', () => {
     localStorage.removeItem(API_KEY_STORAGE);
     apiKeyInput.value = '';
+    if (testKeyStatus) testKeyStatus.textContent = '';
     updateApiKeyIndicator();
     showToast('API Key telah dihapus', 'info');
   });
@@ -513,9 +596,27 @@ PENTING:
   {"no": 127, "gl": "gl", "gt": "", "nama": "", "grade": "65", "kg": "38.5", "brt_fix": "38", "ket": ""}
 ]`;
 
-      // Build candidates list with automatic fallback
+      // Helper function to query live available models from Google ModelService
+      async function fetchLiveModels(key, apiVer = 'v1beta') {
+        try {
+          const listRes = await fetch(`https://generativelanguage.googleapis.com/${apiVer}/models?key=${key}`);
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            if (Array.isArray(listData.models)) {
+              return listData.models
+                .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+                .map(m => m.name.replace(/^models\//, ''));
+            }
+          }
+        } catch (e) {
+          console.warn(`[Vision AI] Gagal mengambil daftar model via ${apiVer}:`, e);
+        }
+        return [];
+      }
+
+      // Build initial priority candidates
       let initialModel = (model || '').replace(/^models\//, '').trim();
-      const modelCandidates = [
+      let modelCandidates = [
         initialModel,
         'gemini-2.5-flash',
         'gemini-2.0-flash',
@@ -524,6 +625,7 @@ PENTING:
         'gemini-1.5-flash-001',
         'gemini-1.5-flash',
         'gemini-2.0-flash-lite',
+        'gemini-2.5-pro',
         'gemini-1.5-pro'
       ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
 
@@ -531,25 +633,26 @@ PENTING:
       let workingModel = null;
       let lastError = null;
 
+      const requestBody = JSON.stringify({
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.0,
+          maxOutputTokens: 4096
+        }
+      });
+
+      // Pass 1: Try candidate list on v1beta
       for (let i = 0; i < modelCandidates.length; i++) {
         const candidate = modelCandidates[i];
         try {
           if (i > 0) {
-            progressStatus.textContent = `Mencoba model alternatif (${candidate})...`;
+            progressStatus.textContent = `Mencoba model AI: ${candidate}...`;
           }
-
-          const requestBody = JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
-              ]
-            }],
-            generationConfig: {
-              temperature: 0.0,
-              maxOutputTokens: 4096
-            }
-          });
 
           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent?key=${apiKey}`, {
             method: 'POST',
@@ -561,7 +664,7 @@ PENTING:
             response = res;
             workingModel = candidate;
             localStorage.setItem(MODEL_STORAGE, candidate);
-            console.log(`[Vision AI] Sukses terhubung menggunakan model: ${candidate}`);
+            console.log(`[Vision AI] Berhasil terhubung dengan model: ${candidate}`);
             break;
           }
 
@@ -569,12 +672,10 @@ PENTING:
           const errMsg = errJson.error?.message || `HTTP ${res.status}`;
           lastError = new Error(errMsg);
 
-          // If model is not found / unsupported, continue trying next candidate
           if (res.status === 404 || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not supported')) {
-            console.warn(`[Vision AI] Model ${candidate} tidak tersedia (${errMsg}), mencoba model cadangan berikutnya...`);
+            console.warn(`[Vision AI] Model ${candidate} tidak tersedia (${errMsg}), mencoba alternatif...`);
             continue;
           } else {
-            // If error is auth (bad key) or quota, stop immediately and report
             throw lastError;
           }
         } catch (callErr) {
@@ -585,8 +686,50 @@ PENTING:
         }
       }
 
+      // Pass 2: If candidates failed, dynamically discover live models via ListModels API
       if (!response) {
-        throw lastError || new Error('Semua model Gemini Vision tidak dapat diakses. Pastikan API Key valid.');
+        progressStatus.textContent = 'Mendeteksi model aktif pada API Key Anda...';
+        console.log('[Vision AI] Menghubungi ModelService.ListModels untuk mendeteksi model yang aktif...');
+        
+        let liveModels = await fetchLiveModels(apiKey, 'v1beta');
+        if (liveModels.length === 0) {
+          liveModels = await fetchLiveModels(apiKey, 'v1');
+        }
+
+        if (liveModels.length > 0) {
+          console.log('[Vision AI] Model yang tersedia dari Google:', liveModels);
+          // Sort flash models first
+          liveModels.sort((a, b) => {
+            const aFlash = a.includes('flash') ? -1 : 1;
+            const bFlash = b.includes('flash') ? -1 : 1;
+            return aFlash - bFlash;
+          });
+
+          for (const liveModel of liveModels) {
+            try {
+              progressStatus.textContent = `Menghubungkan ke ${liveModel}...`;
+              const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${liveModel}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: requestBody
+              });
+
+              if (res.ok) {
+                response = res;
+                workingModel = liveModel;
+                localStorage.setItem(MODEL_STORAGE, liveModel);
+                console.log(`[Vision AI] Sukses otomatis via ListModels: ${liveModel}`);
+                break;
+              }
+            } catch (errLoop) {
+              lastError = errLoop;
+            }
+          }
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error('Tidak dapat menemukan model Gemini Vision yang aktif untuk API Key ini. Pastikan Google Gemini API aktif di Google AI Studio.');
       }
 
       progressBarFill.style.width = '85%';

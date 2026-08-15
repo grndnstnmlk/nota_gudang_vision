@@ -296,7 +296,13 @@
             <input type="password" id="apiKeyInput" placeholder="Masukkan API Key (AIzaSy...)" autocomplete="off" />
             <button type="button" id="btnToggleKeyVis" class="btn-icon-sm" title="Lihat/Sembunyikan"><i data-lucide="eye"></i></button>
           </div>
-          <p class="form-hint">
+          <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center;">
+            <button type="button" id="btnTestApiKey" class="btn-secondary btn-sm" style="padding: 6px 12px; font-size: 12px;">
+              <i data-lucide="activity"></i> Tes & Muat Model Aktif
+            </button>
+            <span id="testKeyStatus" style="font-size: 12px; color: var(--text-muted);"></span>
+          </div>
+          <p class="form-hint" style="margin-top: 6px;">
             Belum punya API key? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Dapatkan gratis di Google AI Studio &rarr;</a> (Instan tanpa kartu kredit).
           </p>
         </div>
@@ -310,6 +316,8 @@
             <option value="gemini-1.5-flash-002">Gemini 1.5 Flash (002)</option>
             <option value="gemini-1.5-flash-001">Gemini 1.5 Flash (001)</option>
             <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
             <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning)</option>
           </select>
         </div>
