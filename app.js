@@ -910,16 +910,21 @@ PENTING:
     const { rows, label } = getSelectedNotaRows();
 
     let totalNet = 0;
-    let totalRp = 0;
+    let sumJumlah = 0;
     let autoNama = '';
     let autoTanggal = '';
     let autoAlamat = '';
+    let gtCount = 0;
 
     rows.forEach(r => {
       const n = parseFloat(r.net) || 0;
       const h = parseFloat(r.harga) || 0;
       totalNet += n;
-      totalRp += (n * h);
+      sumJumlah += (n * h);
+
+      if (String(r.gt || '').toUpperCase().trim() === 'GT' || String(r.ket || '').toUpperCase().includes('GT')) {
+        gtCount++;
+      }
 
       const val = String(r.nama || '').trim();
       if (val) {
@@ -933,10 +938,17 @@ PENTING:
       }
     });
 
+    const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
+    const koliVal = rows.length * 5000;
+    const gtVal = gtCount * 65000;
+    const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
+
     if (notaPreviewText) notaPreviewText.textContent = `Memilih ${label} (${rows.length} Bal)`;
     if (notaPreviewBal) notaPreviewBal.textContent = rows.length;
     if (notaPreviewNet) notaPreviewNet.textContent = `${Math.round(totalNet)} kg`;
-    if (notaPreviewRp) notaPreviewRp.textContent = `Rp ${Math.round(totalRp).toLocaleString('id-ID')}`;
+    if (notaPreviewRp) {
+      notaPreviewRp.textContent = `Rp ${Math.round(totalBersih).toLocaleString('id-ID')}`;
+    }
 
     if (autoFillHeaders) {
       if (inputNotaNama && !inputNotaNama.dataset.userEdited) inputNotaNama.value = autoNama || '';
@@ -1126,14 +1138,20 @@ PENTING:
 
     const finalNama = (inputNotaNama && inputNotaNama.value.trim()) || autoNama || 'Nama Penjual';
     const finalTanggal = (inputNotaTanggal && inputNotaTanggal.value.trim()) || autoTanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    const finalAlamat = (inputNotaAlamat && inputNotaAlamat.value.trim()) || autoAlamat || '';
+    const finalAlamat = (inputNotaAlamat && inputNotaAlamat.value.trim()) || autoAlamat || 'Pegantenan';
 
+    // Build Exact Layout
+    // Row 1: Logo & Title
+    // Row 3: Nama
+    // Row 4: Alamat
+    // Row 5: Tgl/Hr/Thn
+    // Row 7: Header Table
     const wsData = [
-      [],
       ['', 'NOTA PEMBELIAN TEMBAKAU 2026'],
       [],
       ['Nama    :', finalNama],
-      ['Alamat  :', finalAlamat, '', finalTanggal],
+      ['Alamat  :', finalAlamat],
+      ['Tgl/Hr/Thn :', finalTanggal],
       [],
       ['No. GUD', 'BRUTO', 'NETTO', 'HARGA', 'JUMLAH']
     ];
@@ -1141,13 +1159,18 @@ PENTING:
     let sumBruto = 0;
     let sumNetto = 0;
     let sumJumlah = 0;
+    let gtCount = 0;
 
-    filteredRows.forEach(r => {
-      let noGud = r.no;
+    const dataStartRow = 8; // Row 8 in Excel (1-indexed)
+
+    filteredRows.forEach((r, idx) => {
+      const curRow = dataStartRow + idx;
+      let noGud = String(r.no || (idx + 1));
       if (String(r.ket || '').toLowerCase().includes('bs')) {
         noGud = 'BS';
       } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
         noGud = `GT ${r.no}`;
+        gtCount++;
       } else if (String(r.gl || '').toLowerCase().trim() === 'gl') {
         noGud = `GL ${r.no}`;
       }
@@ -1166,16 +1189,71 @@ PENTING:
         brt,
         net,
         hrg,
-        jml
+        { t: 'n', f: `C${curRow}*D${curRow}`, v: jml }
       ]);
     });
 
-    wsData.push(['JUMLAH', sumBruto, sumNetto, '', sumJumlah]);
-    wsData.push([]);
-    wsData.push(['Yang Menerima', '', '', 'Penerima']);
-    wsData.push([]);
-    wsData.push([]);
-    wsData.push(['(....................)', '', '', '(....................)']);
+    const dataEndRow = dataStartRow + filteredRows.length - 1;
+    const jumlahRow = dataEndRow + 1; // Excel row for JUMLAH
+    const pphRow = jumlahRow + 1;
+    const koliRow = pphRow + 1;
+
+    const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
+    const koliVal = filteredRows.length * 5000;
+    const gtVal = gtCount * 65000;
+
+    // Row: JUMLAH
+    wsData.push([
+      '',
+      '',
+      '',
+      'JUMLAH',
+      { t: 'n', f: `SUM(E${dataStartRow}:E${dataEndRow})`, v: sumJumlah }
+    ]);
+
+    // Row: PPH 0,5%
+    wsData.push([
+      '',
+      '',
+      '',
+      'PPH 0,5%',
+      { t: 'n', f: `CEILING(E${jumlahRow}*0.005, 5000)`, v: pphVal }
+    ]);
+
+    // Row: Koli
+    wsData.push([
+      '',
+      '',
+      '',
+      'Koli',
+      { t: 'n', f: `COUNTA(A${dataStartRow}:A${dataEndRow})*5000`, v: koliVal }
+    ]);
+
+    let totalFormula = `E${jumlahRow}-E${pphRow}-E${koliRow}`;
+    let totalBersih = sumJumlah - pphVal - koliVal;
+
+    // Row: GT (if any GT exists)
+    if (gtCount > 0) {
+      const gtRow = koliRow + 1;
+      wsData.push([
+        '',
+        '',
+        '',
+        'GT',
+        { t: 'n', f: `COUNTIF(A${dataStartRow}:A${dataEndRow}, "GT*")*65000`, v: gtVal }
+      ]);
+      totalFormula += `-E${gtRow}`;
+      totalBersih -= gtVal;
+    }
+
+    // Row: TOTAL
+    wsData.push([
+      '',
+      '',
+      '',
+      'TOTAL',
+      { t: 'n', f: totalFormula, v: totalBersih }
+    ]);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -1184,8 +1262,8 @@ PENTING:
       { wch: 14 },
       { wch: 12 },
       { wch: 12 },
-      { wch: 15 },
-      { wch: 18 }
+      { wch: 16 },
+      { wch: 20 }
     ];
 
     const rangeTag = startNo && endNo ? `${startNo}-${endNo}` : (startNo ? `Mulai-${startNo}` : 'Lengkap');

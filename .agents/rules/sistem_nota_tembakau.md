@@ -38,17 +38,30 @@ Kolom standar Buku Sortir berurutan dari kiri ke kanan:
 
 ---
 
-## 3. Standar Format Nota Pembelian (5 Kolom)
-Tabel nota yang dihasilkan untuk cetak/ekspor memiliki struktur:
-1. `NO`: Nomor urut.
-2. `BANYAKNYA`: Jumlah berat bersih (`NET`) dalam satuan Kg.
-3. `NAMA BARANG`: Deskripsi tembakau (menampilkan nomor `GL`, `GT`, dan `GRADE`).
-4. `HARGA`: Nilai `HARGA` per kg.
-5. `JUMLAH`: Subtotal perkalian ($\text{NET} \times \text{HARGA}$).
+## 3. Standar Format & Formula Nota Pembelian (5 Kolom)
 
-### Bagian Header & Footer Nota:
-- **Header**: Tanggal nota, Nama Petani/Penjual, Alamat.
-- **Footer**:
-  - Total Kg ($\sum \text{NET}$).
-  - Total Tagihan / Jumlah Rupiah ($\sum \text{JUMLAH}$).
-  - Kolom Tanda Tangan Penerima / Kasir.
+### A. Layout Header
+- **Judul**: `NOTA PEMBELIAN TEMBAKAU 2026`
+- **Identitas**:
+  - `Nama     : [Nama Penjual]` (contoh: `H. MAHFUD`)
+  - `Alamat   : [Alamat]` (contoh: `Pegantenan`)
+  - `Tgl/Hr/Thn : [Tanggal]` (contoh: `15 Agustus 2026`)
+
+### B. Struktur Tabel 5 Kolom:
+1. `No. GUD`: Kode bal gudang (contoh: `GL 307`, `GL 308`, `GT 123`, `BS`).
+2. `BRUTO`: Bobot bruto bulat (`BRT`).
+3. `NETTO`: Bobot bersih setelah potongan wadah (`NET`).
+4. `HARGA`: Nilai harga per kg (`HARGA`).
+5. `JUMLAH`: Formula Excel `=NETTO * HARGA` (contoh: `=C8*D8`).
+
+### C. Formula Footer Wajib:
+1. **`JUMLAH`**: Subtotal seluruh baris item:
+   $$= \text{SUM}(E8:En)$$
+2. **`PPH 0,5%`**: Pajak penghasilan 0,5% dibulatkan ke atas per 5.000:
+   $$= \text{CEILING}(\text{JUMLAH} \times 0.005, 5000)$$
+3. **`Koli`**: Biaya per bal/koli (Rp 5.000 per bal):
+   $$= \text{COUNTA}(A8:An) \times 5000$$
+4. **`GT`** (Hanya jika ada item GT):
+   $$= \text{COUNTIF}(A8:An, \text{"GT*"}) \times 65000$$
+5. **`TOTAL`**: Total tagihan bersih akhir yang dibayarkan:
+   $$= \text{JUMLAH} - \text{PPH 0,5\%} - \text{Koli} - \text{GT (jika ada)}$$
