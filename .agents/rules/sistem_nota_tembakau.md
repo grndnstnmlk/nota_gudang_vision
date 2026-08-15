@@ -65,3 +65,19 @@ Kolom standar Buku Sortir berurutan dari kiri ke kanan:
    $$= \text{COUNTIF}(A8:An, \text{"GT*"}) \times 65000$$
 5. **`TOTAL`**: Total tagihan bersih akhir yang dibayarkan:
    $$= \text{JUMLAH} - \text{PPH 0,5\%} - \text{Koli} - \text{GT (jika ada)}$$
+
+---
+
+## 4. Aturan Khusus Tembakau BS (Barang Sortir)
+
+### A. Identifikasi Berkas & Ekstraksi Grade
+- Tulisan fisik di kertas: misal `(BAHRUDIN) BS - 20`, `BS 20`, `BS-25`.
+- **Angka setelah kata BS adalah nilai GRADE-nya**:
+  - `BS - 20` atau `BS 20` $\implies \text{GRADE} = 20$ (Harga = Rp 20.000).
+  - `BS - 25` atau `BS-25` $\implies \text{GRADE} = 25$ (Harga = Rp 25.000).
+- Kolom `KET`: Diisi `"BS"` atau `"BS - 20"`.
+
+### B. Format Penulisan pada Kolom `No. GUD` di Nota
+- Pada Nota Pembelian, penulisan kode `BS` ditaruh **setelah nomor urut**:
+  - Format: `[NO] BS` (contoh: baris 151 $\implies$ `151 BS`, atau `BS` jika tidak memiliki nomor).
+

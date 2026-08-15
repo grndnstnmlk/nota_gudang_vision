@@ -591,16 +591,25 @@ ATURAN STRUKTUR KOLOM & POLA TULISAN TANGAN:
    - ATURAN MUTLAK:
      * JIKA kolom BRT pada kertas TERISI angka tulisan tangan (misal: 45, 43, 41, 37, 35, 34, 32...), maka masukkan angka tersebut ke "brt_fix".
      * JIKA kolom BRT pada kertas KOSONG / tidak ditulis (seperti pada beberapa baris), maka KOSONGKAN "brt_fix": "" (sistem akan menghitung otomatis).
-8. "ket": Catatan khusus jika ada (misal "ada bs", "- 2", "- 3", dll).
+8. "ket": Catatan khusus jika ada (misal "BS", "BS - 20", "ada bs", "- 2", "- 3", dll).
+9. "BS" (BARANG SORTIR / TEMBAKAU BS):
+   - Sering tertulis di baris paling bawah, di luar tabel, atau pada baris khusus (misal: "(BAHRUDIN) BS - 20  66.2  64" atau "BS 20" atau "BS-25").
+   - ATURAN MUTLAK BS:
+     * Angka setelah tulisan BS adalah GRADE-nya! (misal "BS - 20" -> "grade": "20", "BS-25" -> "grade": "25", "BS 18" -> "grade": "18").
+     * "ket": diisi "BS" atau "BS - 20".
+     * "nama": diisi nama yang tertulis di sampingnya (misal "BAHRUDIN").
+     * "kg": diisi berat desimalnya (misal "66.2").
+     * "brt_fix": diisi berat bulatnya jika ada (misal "64").
+     * "no": diisi nomor urut setelah baris sebelumnya (misal baris sebelumnya 150 -> "no": 151).
 
 PENTING:
 - Pastikan angka desimal KG terbaca sangat teliti (.0, .1, .2, .3, .4, .5, .6, .7, .8, .9).
 - Kembalikan HANYA format JSON valid tanpa kata pengantar apa pun, seperti:
 [
-  {"no": 185, "gl": "", "gt": "", "nama": "KURDI", "grade": "48", "kg": "45.5", "brt_fix": "45", "ket": ""},
-  {"no": 186, "gl": "", "gt": "", "nama": "(11/8 26)", "grade": "48", "kg": "44.2", "brt_fix": "43", "ket": ""},
-  {"no": 200, "gl": "", "gt": "", "nama": "H. HANAN", "grade": "65", "kg": "46.6", "brt_fix": "", "ket": ""},
-  {"no": 201, "gl": "", "gt": "", "nama": "11/8/26", "grade": "65", "kg": "47.8", "brt_fix": "", "ket": ""}
+  {"no": 148, "gl": "gl", "gt": "", "nama": "H. HANAN", "grade": "55", "kg": "31.5", "brt_fix": "30", "ket": ""},
+  {"no": 149, "gl": "gl", "gt": "", "nama": "(10/8/26)", "grade": "63", "kg": "45.6", "brt_fix": "45", "ket": ""},
+  {"no": 150, "gl": "gl", "gt": "", "nama": "", "grade": "63", "kg": "40.7", "brt_fix": "39", "ket": ""},
+  {"no": 151, "gl": "", "gt": "", "nama": "BAHRUDIN", "grade": "20", "kg": "66.2", "brt_fix": "64", "ket": "BS - 20"}
 ]`;
 
       // Helper function to query live available models from Google ModelService
@@ -845,6 +854,12 @@ PENTING:
       { no: 139, gl: 'gl', gt: '', nama: '(10/8/26)', grade: '62', harga: 61000, kg: '50.3', brt: 50, brt_fix: '50', net: 48, ket: '' },
       { no: 142, gl: 'gl', gt: '', nama: 'Bahrudin', grade: '40', harga: 39000, kg: '38.3', brt: 37, brt_fix: '37', net: 35, ket: '' },
       { no: 143, gl: 'gl', gt: '', nama: '', grade: '40', harga: 39000, kg: '41.7', brt: 41, brt_fix: '41', net: 39, ket: '' },
+      { no: 147, gl: 'gl', gt: '', nama: '', grade: '37', harga: 36000, kg: '48.1', brt: 47, brt_fix: '47', net: 45, ket: '' },
+      { no: 148, gl: 'gl', gt: '', nama: 'H. HANAN', grade: '55', harga: 54000, kg: '31.5', brt: 30, brt_fix: '30', net: 28, ket: '' },
+      { no: 149, gl: 'gl', gt: '', nama: '(10/8/26)', grade: '63', harga: 62000, kg: '45.6', brt: 45, brt_fix: '45', net: 43, ket: '' },
+      { no: 150, gl: 'gl', gt: '', nama: '', grade: '63', harga: 62000, kg: '40.7', brt: 39, brt_fix: '39', net: 37, ket: '' },
+      // Baris Khusus BS (Barang Sortir): Jenis tembakau BS, Grade diambil dari angka setelah BS (BS-20 -> Grade 20)
+      { no: 151, gl: '', gt: '', nama: '(BAHRUDIN) (10/8 26)', grade: '20', harga: 20000, kg: '66.2', brt: 64, brt_fix: '64', net: 59, ket: 'BS - 20' },
       // Dari Berkas Kurdi (185-199): BRT terisi tulisan tangan checker (masuk ke BRT FIX)
       { no: 185, gl: '', gt: '', nama: 'KURDI', grade: '48', harga: 47000, kg: '45.5', brt: 45, brt_fix: '45', net: 43, ket: '- 2' },
       { no: 186, gl: '', gt: '', nama: '(11/8 26)', grade: '48', harga: 47000, kg: '44.2', brt: 43, brt_fix: '43', net: 41, ket: '- 2' },
@@ -1166,8 +1181,13 @@ PENTING:
     filteredRows.forEach((r, idx) => {
       const curRow = dataStartRow + idx;
       let noGud = String(r.no || (idx + 1));
-      if (String(r.ket || '').toLowerCase().includes('bs')) {
-        noGud = 'BS';
+      const ketStr = String(r.ket || '').toLowerCase();
+      const gradeStr = String(r.grade || '').toLowerCase();
+      const isBS = ketStr.includes('bs') || gradeStr.includes('bs');
+
+      if (isBS) {
+        // Penulisan di nota ditaruh setelah nomor: contoh "151 BS" atau "BS" jika tanpa nomor
+        noGud = r.no ? `${r.no} BS` : 'BS';
       } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
         noGud = `GT ${r.no}`;
         gtCount++;
