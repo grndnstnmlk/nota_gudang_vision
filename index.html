@@ -95,8 +95,8 @@
       <section class="card upload-card">
         <div class="card-header">
           <div class="card-title">
-            <i data-lucide="camera"></i>
-            <span>Sumber Foto Kertas Berkas</span>
+            <i data-lucide="layers"></i>
+            <span>Sumber Data Masukan</span>
           </div>
           <div class="card-header-actions" id="previewActions" style="display: none;">
             <button id="btnResetPhoto" class="btn-secondary btn-sm" title="Hapus foto & ganti baru">
@@ -105,38 +105,84 @@
           </div>
         </div>
 
-        <!-- Dropzone Box -->
-        <div class="dropzone" id="dropzone">
-          <input type="file" id="fileInput" accept="image/*,.heic,.heif,.pdf" class="file-input" />
-          <div class="dropzone-inner">
-            <div class="upload-icon-pulse">
-              <i data-lucide="upload-cloud"></i>
+        <!-- Source Mode Switcher Tabs -->
+        <div class="source-tabs">
+          <button type="button" class="source-tab active" id="tabModePhoto" data-tab="photo">
+            <i data-lucide="camera"></i> <span>Foto Berkas (Vision AI)</span>
+          </button>
+          <button type="button" class="source-tab" id="tabModeExcel" data-tab="excel">
+            <i data-lucide="file-spreadsheet"></i> <span>Upload Excel Buku Sortir</span>
+          </button>
+        </div>
+
+        <!-- Panel 1: Photo & Vision AI Source -->
+        <div id="panelSourcePhoto" class="source-panel active">
+          <!-- Dropzone Box -->
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" accept="image/*,.heic,.heif,.pdf" class="file-input" />
+            <div class="dropzone-inner">
+              <div class="upload-icon-pulse">
+                <i data-lucide="upload-cloud"></i>
+              </div>
+              <h3>Pilih atau Tarik Foto Berkas ke Sini</h3>
+              <p class="dropzone-sub">Mendukung Foto Kamera HP, JPG, PNG, dan iPhone HEIC</p>
+              
+              <div class="quick-actions">
+                <button type="button" class="btn-primary" id="btnCameraOpen">
+                  <i data-lucide="camera"></i> Ambil Foto Kamera
+                </button>
+                <button type="button" class="btn-secondary" id="btnLoadDemoSample">
+                  <i data-lucide="sparkles"></i> Muat Sampel Berkas
+                </button>
+              </div>
             </div>
-            <h3>Pilih atau Tarik Foto Berkas ke Sini</h3>
-            <p class="dropzone-sub">Mendukung Foto Kamera HP, JPG, PNG, dan iPhone HEIC</p>
-            
-            <div class="quick-actions">
-              <button type="button" class="btn-primary" id="btnCameraOpen">
-                <i data-lucide="camera"></i> Ambil Foto Kamera
-              </button>
-              <button type="button" class="btn-secondary" id="btnLoadDemoSample">
-                <i data-lucide="sparkles"></i> Muat Sampel Berkas
+          </div>
+
+          <!-- Image Preview Box (Active after upload) -->
+          <div class="preview-container" id="previewContainer" style="display: none;">
+            <div class="preview-image-wrapper">
+              <img id="previewImage" alt="Preview Foto Berkas Sortir" />
+            </div>
+
+            <div class="ocr-action-bar">
+              <button id="btnRunVisionAI" class="btn-ai-scan">
+                <i data-lucide="sparkles"></i>
+                <span>Ekstrak dengan Vision AI (100% Akurat)</span>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Image Preview Box (Active after upload) -->
-        <div class="preview-container" id="previewContainer" style="display: none;">
-          <div class="preview-image-wrapper">
-            <img id="previewImage" alt="Preview Foto Berkas Sortir" />
+        <!-- Panel 2: Direct Excel (xlsx 1) Source -->
+        <div id="panelSourceExcel" class="source-panel" style="display: none;">
+          <div class="dropzone dropzone-excel" id="dropzoneExcel">
+            <input type="file" id="excelFileInput" accept=".xlsx,.xls" class="file-input" />
+            <div class="dropzone-inner">
+              <div class="upload-icon-pulse excel-icon-pulse">
+                <i data-lucide="file-spreadsheet"></i>
+              </div>
+              <h3>Upload File Excel Buku Sortir (.xlsx)</h3>
+              <p class="dropzone-sub">Tarik file <code>xlsx 1</code> ke sini untuk langsung membuat nota</p>
+              
+              <div class="quick-actions">
+                <button type="button" class="btn-primary btn-excel-pick" id="btnPickExcel">
+                  <i data-lucide="upload"></i> Pilih File Excel (.xlsx)
+                </button>
+                <button type="button" class="btn-secondary" id="btnLoadSampleBukuSortir">
+                  <i data-lucide="database"></i> Muat Buku Sortir (1-1000)
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="ocr-action-bar">
-            <button id="btnRunVisionAI" class="btn-ai-scan">
-              <i data-lucide="sparkles"></i>
-              <span>Ekstrak dengan Vision AI (100% Akurat)</span>
-            </button>
+          <div class="excel-loaded-info" id="excelLoadedInfo" style="display: none;">
+            <div class="info-badge-success">
+              <i data-lucide="check-circle-2"></i>
+              <div class="info-badge-text">
+                <strong id="excelFileName">Buku_Soter_1-1000 GREEND.xlsx</strong>
+                <span id="excelFileStats">1000 baris bal berhasil dimuat</span>
+              </div>
+            </div>
           </div>
         </div>
 

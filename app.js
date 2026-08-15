@@ -303,6 +303,221 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.readAsDataURL(file);
   }
 
+  // =========================================================================
+  // Source Mode Tabs (Foto Berkas vs Upload Excel Buku Sortir)
+  // =========================================================================
+  const tabModePhoto = document.getElementById('tabModePhoto');
+  const tabModeExcel = document.getElementById('tabModeExcel');
+  const panelSourcePhoto = document.getElementById('panelSourcePhoto');
+  const panelSourceExcel = document.getElementById('panelSourceExcel');
+
+  if (tabModePhoto && tabModeExcel) {
+    tabModePhoto.addEventListener('click', () => {
+      tabModePhoto.classList.add('active');
+      tabModeExcel.classList.remove('active');
+      if (panelSourcePhoto) panelSourcePhoto.style.display = 'block';
+      if (panelSourceExcel) panelSourceExcel.style.display = 'none';
+      if (window.lucide) lucide.createIcons();
+    });
+
+    tabModeExcel.addEventListener('click', () => {
+      tabModeExcel.classList.add('active');
+      tabModePhoto.classList.remove('active');
+      if (panelSourcePhoto) panelSourcePhoto.style.display = 'none';
+      if (panelSourceExcel) panelSourceExcel.style.display = 'block';
+      if (window.lucide) lucide.createIcons();
+    });
+  }
+
+  // =========================================================================
+  // Direct Excel (xlsx 1) Buku Sortir Upload Engine
+  // =========================================================================
+  const dropzoneExcel = document.getElementById('dropzoneExcel');
+  const excelFileInput = document.getElementById('excelFileInput');
+  const btnPickExcel = document.getElementById('btnPickExcel');
+  const btnLoadSampleBukuSortir = document.getElementById('btnLoadSampleBukuSortir');
+
+  async function loadExcelBukuSortir(arrayBuffer, fileName) {
+    try {
+      const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+      const sheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      if (!ws) {
+        showToast('Sheet Excel tidak ditemukan', 'error');
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (rows.length < 3) {
+        showToast('Format Excel memiliki terlalu sedikit baris', 'error');
+        return;
+      }
+
+      // Find Header Row: look for row containing NO, GRADE, KG or NAMA
+      let headerRowIdx = -1;
+      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const rowTexts = rows[i].map(x => String(x).toUpperCase().trim());
+        if (rowTexts.includes('NO') && (rowTexts.includes('GRADE') || rowTexts.includes('KG') || rowTexts.includes('NAMA'))) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+
+      if (headerRowIdx === -1) {
+        headerRowIdx = 2; // Default to row 3 (0-indexed 2)
+      }
+
+      const headerRow = rows[headerRowIdx].map(x => String(x).toUpperCase().trim());
+      
+      const getColIdx = (names) => {
+        for (const name of names) {
+          const idx = headerRow.indexOf(name);
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+
+      const c_gl = getColIdx(['GL']);
+      const c_no = getColIdx(['NO', 'NO.', 'NOMOR']);
+      const c_gt = getColIdx(['GT']);
+      const c_nama = getColIdx(['NAMA', 'PETANI', 'NAMA PETANI']);
+      const c_grade = getColIdx(['GRADE', 'GRD']);
+      const c_harga = getColIdx(['HARGA', 'HRG']);
+      const c_kg = getColIdx(['KG', 'BERAT KG', 'KILOGRAM']);
+      const c_brt = getColIdx(['BRT', 'BRUTO']);
+      const c_brtfix = getColIdx(['BRT FIX', 'BRT_FIX', 'BRUTO FIX']);
+      const c_net = getColIdx(['NET', 'NETTO']);
+      const c_ket = getColIdx(['KET', 'KETERANGAN']);
+
+      const parsedData = [];
+
+      for (let r = headerRowIdx + 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row || row.length === 0) continue;
+
+        const noRaw = c_no !== -1 ? row[c_no] : '';
+        const gradeRaw = c_grade !== -1 ? row[c_grade] : '';
+        const kgRaw = c_kg !== -1 ? row[c_kg] : '';
+        const namaRaw = c_nama !== -1 ? row[c_nama] : '';
+        const glRaw = c_gl !== -1 ? row[c_gl] : '';
+        const gtRaw = c_gt !== -1 ? row[c_gt] : '';
+        const brtRaw = c_brt !== -1 ? row[c_brt] : '';
+        const brtFixRaw = c_brtfix !== -1 ? row[c_brtfix] : '';
+        const netRaw = c_net !== -1 ? row[c_net] : '';
+        const hrgRaw = c_harga !== -1 ? row[c_harga] : '';
+        const ketRaw = c_ket !== -1 ? row[c_ket] : '';
+
+        // Ignore completely empty row
+        if (!noRaw && !gradeRaw && !kgRaw && !namaRaw && !ketRaw) continue;
+
+        const brtVal = (brtFixRaw !== '' && !String(brtFixRaw).startsWith('=')) 
+          ? Number(brtFixRaw) 
+          : ((brtRaw !== '' && !String(brtRaw).startsWith('=')) ? Number(brtRaw) : calc_brt(kgRaw, brtFixRaw));
+        const hrgVal = (hrgRaw !== '' && !String(hrgRaw).startsWith('=')) 
+          ? Number(hrgRaw) 
+          : calc_harga(gradeRaw, hrgRaw);
+        const netVal = (netRaw !== '' && !String(netRaw).startsWith('=')) 
+          ? Number(netRaw) 
+          : calc_net(brtVal, glRaw);
+
+        parsedData.push({
+          no: noRaw !== '' ? (isNaN(Number(noRaw)) ? String(noRaw).trim() : Number(noRaw)) : (parsedData.length + 1),
+          gl: String(glRaw).trim().toLowerCase() === 'gl' ? 'gl' : '',
+          gt: String(gtRaw).trim().toUpperCase() === 'GT' ? 'GT' : '',
+          nama: String(namaRaw).trim(),
+          grade: String(gradeRaw).trim(),
+          harga: hrgVal || '',
+          kg: String(kgRaw).trim(),
+          brt: brtVal || '',
+          brt_fix: (brtFixRaw !== '' && !String(brtFixRaw).startsWith('=')) ? String(brtFixRaw).trim() : '',
+          net: netVal || '',
+          ket: String(ketRaw).trim()
+        });
+      }
+
+      if (parsedData.length === 0) {
+        showToast('Tidak ada data baris valid di file Excel tersebut', 'error');
+        return;
+      }
+
+      tobaccoData = parsedData;
+      renderGridTable();
+      updateStats();
+      renderNotaPresets();
+
+      const excelLoadedInfo = document.getElementById('excelLoadedInfo');
+      const excelFileName = document.getElementById('excelFileName');
+      const excelFileStats = document.getElementById('excelFileStats');
+      if (excelLoadedInfo && excelFileName && excelFileStats) {
+        excelFileName.textContent = fileName || 'Buku_Sortir.xlsx';
+        excelFileStats.textContent = `${parsedData.length} baris bal tembakau berhasil dimuat & siap dibuatkan nota`;
+        excelLoadedInfo.style.display = 'block';
+      }
+
+      showToast(`Berhasil memuat ${parsedData.length} baris dari ${fileName || 'Excel'}!`, 'success', 5000);
+    } catch (err) {
+      console.error('[Excel Upload Error]:', err);
+      showToast(`Gagal membaca Excel: ${err.message}`, 'error');
+    }
+  }
+
+  if (btnPickExcel && excelFileInput) {
+    btnPickExcel.addEventListener('click', (e) => {
+      e.stopPropagation();
+      excelFileInput.click();
+    });
+  }
+
+  if (excelFileInput) {
+    excelFileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        loadExcelBukuSortir(evt.target.result, file.name);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  if (dropzoneExcel) {
+    dropzoneExcel.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzoneExcel.classList.add('drag-over');
+    });
+
+    dropzoneExcel.addEventListener('dragleave', () => {
+      dropzoneExcel.classList.remove('drag-over');
+    });
+
+    dropzoneExcel.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzoneExcel.classList.remove('drag-over');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          loadExcelBukuSortir(evt.target.result, file.name);
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+  }
+
+  if (btnLoadSampleBukuSortir) {
+    btnLoadSampleBukuSortir.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const res = await fetch('Buku_Soter_1-1000 GREEND.xlsx');
+        if (!res.ok) throw new Error('File contoh tidak ditemukan');
+        const buf = await res.arrayBuffer();
+        await loadExcelBukuSortir(buf, 'Buku_Soter_1-1000 GREEND.xlsx');
+      } catch (err) {
+        showToast('Gagal memuat sample buku sortir: ' + err.message, 'error');
+      }
+    });
+  }
+
   btnResetPhoto.addEventListener('click', () => {
     currentImageSrc = null;
     fileInput.value = '';

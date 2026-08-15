@@ -316,6 +316,50 @@ body.light-theme .moon-icon { display: block; }
   color: var(--accent-primary);
 }
 
+/* Source Mode Tabs */
+.source-tabs {
+  display: flex;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.source-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.source-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.source-tab.active {
+  background: var(--accent-primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.source-tab i {
+  width: 15px;
+  height: 15px;
+}
+
 /* Dropzone */
 .dropzone {
   position: relative;
@@ -326,6 +370,64 @@ body.light-theme .moon-icon { display: block; }
   cursor: pointer;
   background: var(--bg-glass);
   transition: all var(--transition-fast);
+}
+
+.dropzone-excel:hover, .dropzone-excel.drag-over {
+  border-color: #10b981 !important;
+  background: rgba(16, 185, 129, 0.06) !important;
+}
+
+.excel-icon-pulse {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+}
+
+.btn-excel-pick {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+}
+
+.btn-excel-pick:hover {
+  background: #059669 !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
+}
+
+.excel-loaded-info {
+  margin-top: 0.85rem;
+}
+
+.info-badge-success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-md);
+  color: #34d399;
+}
+
+.info-badge-success i {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.info-badge-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.info-badge-text strong {
+  font-size: 0.85rem;
+  color: #ffffff;
+}
+
+.info-badge-text span {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .dropzone:hover, .dropzone.drag-over {
