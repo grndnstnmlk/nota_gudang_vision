@@ -902,19 +902,46 @@ PENTING:
     const fromVal = inputNotaFrom ? parseInt(inputNotaFrom.value.trim(), 10) : NaN;
     const toVal = inputNotaTo ? parseInt(inputNotaTo.value.trim(), 10) : NaN;
 
+    let filtered = [];
+    let label = 'Semua Baris';
+
     if (!isNaN(fromVal) && !isNaN(toVal)) {
       const minNo = Math.min(fromVal, toVal);
       const maxNo = Math.max(fromVal, toVal);
-      const filtered = tobaccoData.filter(r => {
+      filtered = tobaccoData.filter(r => {
         const n = parseInt(r.no, 10);
         return !isNaN(n) && n >= minNo && n <= maxNo;
       });
-      return { rows: filtered, from: minNo, to: maxNo, label: `No. ${minNo} s/d ${maxNo}` };
+
+      // Auto-detect farmer name for this range and bundle any separate BS row belonging to this farmer
+      const rangeInfo = detectInfo(filtered, minNo);
+      const farmerName = (rangeInfo.nama || '').trim().toLowerCase();
+
+      if (farmerName) {
+        // Find any BS rows outside the numeric range that match this farmer name
+        const extraBsRows = tobaccoData.filter(r => {
+          const n = parseInt(r.no, 10);
+          const isOutside = isNaN(n) || n < minNo || n > maxNo;
+          const isBS = String(r.no || '').toLowerCase().includes('bs') || String(r.ket || '').toLowerCase().includes('bs');
+          const rName = String(r.nama || '').toLowerCase();
+          return isOutside && isBS && (rName.includes(farmerName) || farmerName.includes(rName.replace(/[()]/g, '').trim()));
+        });
+        filtered = [...filtered, ...extraBsRows];
+      }
+
+      label = `No. ${minNo} s/d ${maxNo}`;
+      return { rows: filtered, from: minNo, to: maxNo, label };
     } else if (!isNaN(fromVal)) {
-      const filtered = tobaccoData.filter(r => parseInt(r.no, 10) >= fromVal);
+      filtered = tobaccoData.filter(r => {
+        const n = parseInt(r.no, 10);
+        return isNaN(n) ? true : n >= fromVal;
+      });
       return { rows: filtered, from: fromVal, to: null, label: `Mulai No. ${fromVal}` };
     } else if (!isNaN(toVal)) {
-      const filtered = tobaccoData.filter(r => parseInt(r.no, 10) <= toVal);
+      filtered = tobaccoData.filter(r => {
+        const n = parseInt(r.no, 10);
+        return isNaN(n) ? true : n <= toVal;
+      });
       return { rows: filtered, from: null, to: toVal, label: `Sampai No. ${toVal}` };
     }
 
@@ -1243,12 +1270,18 @@ PENTING:
       const curRow = dataStartRow + idx;
       let noGud = String(r.no || (idx + 1));
       const ketStr = String(r.ket || '').toLowerCase();
-      const gradeStr = String(r.grade || '').toLowerCase();
-      const isBS = ketStr.includes('bs') || gradeStr.includes('bs');
+      const noStr = String(r.no || '').toLowerCase();
+      const isBS = ketStr.includes('bs') || noStr.includes('bs');
 
       if (isBS) {
-        // Penulisan di nota ditaruh setelah nomor: contoh "151 BS" atau "BS" jika tanpa nomor
-        noGud = r.no ? `${r.no} BS` : 'BS';
+        const numVal = parseInt(r.no, 10);
+        if (!isNaN(numVal)) {
+          noGud = `${numVal} BS`;
+        } else {
+          const prevNums = filteredRows.map(x => parseInt(x.no, 10)).filter(x => !isNaN(x));
+          const baseNo = prevNums.length > 0 ? Math.max(...prevNums) + 1 : (idx + 1);
+          noGud = `${baseNo} BS`;
+        }
       } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
         noGud = `GT ${r.no}`;
         gtCount++;
@@ -1408,11 +1441,18 @@ PENTING:
     filteredRows.forEach((r, idx) => {
       let noGud = String(r.no || (idx + 1));
       const ketStr = String(r.ket || '').toLowerCase();
-      const gradeStr = String(r.grade || '').toLowerCase();
-      const isBS = ketStr.includes('bs') || gradeStr.includes('bs');
+      const noStr = String(r.no || '').toLowerCase();
+      const isBS = ketStr.includes('bs') || noStr.includes('bs');
 
       if (isBS) {
-        noGud = r.no ? `${r.no} BS` : 'BS';
+        const numVal = parseInt(r.no, 10);
+        if (!isNaN(numVal)) {
+          noGud = `${numVal} BS`;
+        } else {
+          const prevNums = filteredRows.map(x => parseInt(x.no, 10)).filter(x => !isNaN(x));
+          const baseNo = prevNums.length > 0 ? Math.max(...prevNums) + 1 : (idx + 1);
+          noGud = `${baseNo} BS`;
+        }
       } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
         noGud = `GT ${r.no}`;
         gtCount++;
