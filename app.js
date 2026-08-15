@@ -1026,6 +1026,13 @@ PENTING:
       }
     }
 
+    if (alamat && (alamat.toLowerCase() === nama.toLowerCase() || isDateToken(alamat) || alamat.includes(nama))) {
+      // If alamat is identical to nama or duplicate, empty it unless it's a real place like Pegantenan / Kadur
+      if (!['pegantenan', 'kadur', 'larangan', 'pamekasan', 'ganding', 'gulen'].includes(alamat.toLowerCase())) {
+        alamat = '';
+      }
+    }
+
     return {
       nama: nama || '',
       tanggal: tanggal || '',
