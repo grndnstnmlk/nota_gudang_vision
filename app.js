@@ -1224,7 +1224,7 @@ PENTING:
     showToast(`Buku Sortir berhasil diunduh -> ${filename}`, 'success');
   });
 
-  btnGenerateNota.addEventListener('click', () => {
+  btnGenerateNota.addEventListener('click', async () => {
     if (tobaccoData.length === 0) {
       showToast('Tidak ada data untuk membuat Nota Pembelian', 'error');
       return;
@@ -1237,18 +1237,235 @@ PENTING:
       return;
     }
 
-    // Auto discover headers from the filtered subset using Python-matching detectInfo
     const info = detectInfo(filteredRows, startNo);
     const finalNama = (inputNotaNama && inputNotaNama.value.trim()) || info.nama || 'Nama Penjual';
     const finalTanggal = (inputNotaTanggal && inputNotaTanggal.value.trim()) || info.tanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     const finalAlamat = (inputNotaAlamat && inputNotaAlamat.value.trim()) || info.alamat || 'Pegantenan';
 
-    // Build Exact Layout
-    // Row 1: Logo & Title
-    // Row 3: Nama
-    // Row 4: Alamat
-    // Row 5: Tgl/Hr/Thn
-    // Row 7: Header Table
+    const rangeTag = startNo && endNo ? `${startNo}-${endNo}` : (startNo ? `Mulai-${startNo}` : 'Lengkap');
+    const safeName = finalNama.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Nota_${safeName}_${rangeTag}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    try {
+      if (typeof ExcelJS !== 'undefined') {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Vision AI Nota Generator';
+        const sheetTitle = (finalNama || `Nota ${rangeTag}`).replace(/[\/\\?*\[\]:]/g, '-').slice(0, 31);
+        const ws = workbook.addWorksheet(sheetTitle, {
+          views: [{ showGridLines: false }],
+          pageSetup: {
+            paperSize: 9, // A4
+            orientation: 'portrait',
+            fitToPage: true,
+            fitToWidth: 1,
+            fitToHeight: 0,
+            margins: { left: 1.0, right: 1.0, top: 1.0, bottom: 1.0 }
+          }
+        });
+
+        // Set column widths matching Python nota generator
+        ws.columns = [
+          { width: 14 },
+          { width: 12 },
+          { width: 12 },
+          { width: 14 },
+          { width: 18 }
+        ];
+
+        // Row Heights
+        ws.getRow(2).height = 20;
+        ws.getRow(4).height = 16;
+        ws.getRow(5).height = 16;
+        ws.getRow(6).height = 16;
+        ws.getRow(8).height = 18;
+
+        // Embed Logo in cell A2:A3 if available
+        try {
+          const logoRes = await fetch('logo.png');
+          if (logoRes.ok) {
+            const logoBuffer = await logoRes.arrayBuffer();
+            const logoId = workbook.addImage({
+              buffer: logoBuffer,
+              extension: 'png'
+            });
+            ws.addImage(logoId, {
+              tl: { col: 0.15, row: 0.6 },
+              ext: { width: 52, height: 52 }
+            });
+          }
+        } catch (imgErr) {
+          console.warn('[Nota] Logo image fetch skipped:', imgErr);
+        }
+
+        // Title in B2
+        const titleCell = ws.getCell('B2');
+        titleCell.value = 'NOTA PEMBELIAN TEMBAKAU 2026';
+        titleCell.font = { name: 'Bahnschrift', size: 16, bold: true };
+        titleCell.alignment = { vertical: 'middle' };
+
+        // Identity in A4..B6
+        const setIdentity = (row, label, val) => {
+          const cLabel = ws.getCell(`A${row}`);
+          cLabel.value = label;
+          cLabel.font = { name: 'Bahnschrift', size: 11, bold: true };
+          cLabel.alignment = { horizontal: 'right', vertical: 'middle' };
+
+          const cVal = ws.getCell(`B${row}`);
+          cVal.value = val;
+          cVal.font = { name: 'Bahnschrift', size: 11 };
+          cVal.alignment = { horizontal: 'left', vertical: 'middle' };
+        };
+
+        setIdentity(4, 'Nama    :', finalNama);
+        setIdentity(5, 'Alamat    :', finalAlamat);
+        setIdentity(6, 'Tgl/Hr/Thn  :', finalTanggal);
+
+        // Header Table in Row 8 with solid borders
+        const headers = ['No. GUD', 'BRUTO', 'NETTO', 'HARGA', 'JUMLAH'];
+        const borderMedium = {
+          top: { style: 'medium' },
+          bottom: { style: 'medium' },
+          left: { style: 'medium' },
+          right: { style: 'medium' }
+        };
+        const borderThin = {
+          top: { style: 'thin' },
+          bottom: { style: 'thin' },
+          left: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+
+        headers.forEach((h, idx) => {
+          const cell = ws.getRow(8).getCell(idx + 1);
+          cell.value = h;
+          cell.font = { name: 'Bahnschrift', size: 12, bold: true };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = borderMedium;
+        });
+
+        // Data Rows starting at Row 9
+        const dataStart = 9;
+        let gtCount = 0;
+        let sumJumlah = 0;
+
+        filteredRows.forEach((r, idx) => {
+          const curRow = dataStart + idx;
+          const rowObj = ws.getRow(curRow);
+          rowObj.height = 16;
+
+          let noGud = String(r.no || (idx + 1));
+          const ketStr = String(r.ket || '').toLowerCase();
+          const noStr = String(r.no || '').toLowerCase();
+          const isBS = ketStr.includes('bs') || noStr.includes('bs');
+
+          if (isBS) {
+            const numVal = parseInt(r.no, 10);
+            if (!isNaN(numVal)) {
+              noGud = `${numVal} BS`;
+            } else {
+              const prevNums = filteredRows.map(x => parseInt(x.no, 10)).filter(x => !isNaN(x));
+              const baseNo = prevNums.length > 0 ? Math.max(...prevNums) + 1 : (idx + 1);
+              noGud = `${baseNo} BS`;
+            }
+          } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
+            noGud = `GT ${r.no}`;
+            gtCount++;
+          } else if (String(r.gl || '').toLowerCase().trim() === 'gl') {
+            noGud = `GL ${r.no}`;
+          }
+
+          const brt = Number(r.brt) || 0;
+          const net = Number(r.net) || 0;
+          const hrg = Number(r.harga) || 0;
+          const jml = net * hrg;
+          sumJumlah += jml;
+
+          const c1 = rowObj.getCell(1);
+          c1.value = noGud;
+          c1.font = { name: 'Bahnschrift', size: 11 };
+          c1.alignment = { horizontal: 'center', vertical: 'middle' };
+          c1.border = borderThin;
+
+          const c2 = rowObj.getCell(2);
+          c2.value = brt;
+          c2.font = { name: 'Bahnschrift', size: 12 };
+          c2.alignment = { horizontal: 'center', vertical: 'middle' };
+          c2.border = borderThin;
+
+          const c3 = rowObj.getCell(3);
+          c3.value = net;
+          c3.font = { name: 'Bahnschrift', size: 12 };
+          c3.alignment = { horizontal: 'center', vertical: 'middle' };
+          c3.border = borderThin;
+
+          const c4 = rowObj.getCell(4);
+          c4.value = hrg;
+          c4.font = { name: 'Bahnschrift', size: 12 };
+          c4.alignment = { horizontal: 'center', vertical: 'middle' };
+          c4.numFmt = '#,##0';
+          c4.border = borderThin;
+
+          const c5 = rowObj.getCell(5);
+          c5.value = { formula: `C${curRow}*D${curRow}`, result: jml };
+          c5.font = { name: 'Bahnschrift', size: 12 };
+          c5.alignment = { horizontal: 'center', vertical: 'middle' };
+          c5.numFmt = '#,##0';
+          c5.border = borderThin;
+        });
+
+        const dataEnd = dataStart + filteredRows.length - 1;
+        const rJml = dataEnd + 1;
+        const rPph = rJml + 1;
+        const rKoli = gtCount > 0 ? rPph + 2 : rPph + 1;
+        const rGt = gtCount > 0 ? rPph + 1 : null;
+        const rTot = gtCount > 0 ? rKoli + 1 : rKoli + 1;
+
+        const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
+        const koliVal = filteredRows.length * 5000;
+        const gtVal = gtCount * 65000;
+        const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
+
+        // Footer Rows Helper
+        const addFooterRow = (rowNum, label, formula, resultVal, numFmt, isBold = false) => {
+          const rowObj = ws.getRow(rowNum);
+          rowObj.height = 16;
+
+          const cLabel = rowObj.getCell(4);
+          cLabel.value = label;
+          cLabel.font = { name: 'Bahnschrift', size: 12, bold: isBold };
+          cLabel.alignment = { horizontal: 'right', vertical: 'middle' };
+          cLabel.border = borderThin;
+
+          const cVal = rowObj.getCell(5);
+          cVal.value = { formula, result: resultVal };
+          cVal.font = { name: 'Bahnschrift', size: 12, bold: isBold };
+          cVal.alignment = { horizontal: 'center', vertical: 'middle' };
+          cVal.numFmt = numFmt;
+          cVal.border = borderThin;
+        };
+
+        addFooterRow(rJml, 'JUMLAH ', `SUM(E${dataStart}:E${dataEnd})`, sumJumlah, '#,##0');
+        addFooterRow(rPph, 'PPH 0,5%', `CEILING(E${rJml}*0.005,5000)`, pphVal, '#,##0');
+        if (gtCount > 0) {
+          addFooterRow(rGt, 'GT', `65000*COUNTIF(A${dataStart}:A${dataEnd},"GT*")`, gtVal, '"Rp"#,##0');
+        }
+        addFooterRow(rKoli, 'Koli', `COUNTA(A${dataStart}:A${dataEnd})*5000`, koliVal, '"Rp"#,##0');
+
+        const totFormula = gtCount > 0
+          ? `E${rJml}-E${rKoli}-E${rGt}-E${rPph}`
+          : `E${rJml}-E${rKoli}-E${rPph}`;
+        addFooterRow(rTot, 'TOTAL', totFormula, totalBersih, '"Rp"#,##0', true);
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+        showToast(`Nota Pembelian Excel berhasil diunduh (Lengkap Garis & Logo) -> ${filename}`, 'success', 5000);
+        return;
+      }
+    } catch (err) {
+      console.warn('[ExcelJS Error, fallback to SheetJS]:', err);
+    }
+
+    // Fallback SheetJS exporter if ExcelJS is unavailable
     const wsData = [
       ['', 'NOTA PEMBELIAN TEMBAKAU 2026'],
       [],
@@ -1263,8 +1480,7 @@ PENTING:
     let sumNetto = 0;
     let sumJumlah = 0;
     let gtCount = 0;
-
-    const dataStartRow = 8; // Row 8 in Excel (1-indexed)
+    const dataStartRow = 8;
 
     filteredRows.forEach((r, idx) => {
       const curRow = dataStartRow + idx;
@@ -1275,13 +1491,7 @@ PENTING:
 
       if (isBS) {
         const numVal = parseInt(r.no, 10);
-        if (!isNaN(numVal)) {
-          noGud = `${numVal} BS`;
-        } else {
-          const prevNums = filteredRows.map(x => parseInt(x.no, 10)).filter(x => !isNaN(x));
-          const baseNo = prevNums.length > 0 ? Math.max(...prevNums) + 1 : (idx + 1);
-          noGud = `${baseNo} BS`;
-        }
+        noGud = !isNaN(numVal) ? `${numVal} BS` : `${idx + 1} BS`;
       } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
         noGud = `GT ${r.no}`;
         gtCount++;
@@ -1293,7 +1503,6 @@ PENTING:
       const net = Number(r.net) || 0;
       const hrg = Number(r.harga) || 0;
       const jml = net * hrg;
-
       sumBruto += brt;
       sumNetto += net;
       sumJumlah += jml;
@@ -1308,100 +1517,36 @@ PENTING:
     });
 
     const dataEndRow = dataStartRow + filteredRows.length - 1;
-    const jumlahRow = dataEndRow + 1; // Excel row for JUMLAH
+    const jumlahRow = dataEndRow + 1;
     const pphRow = jumlahRow + 1;
     const koliRow = pphRow + 1;
-
     const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
     const koliVal = filteredRows.length * 5000;
     const gtVal = gtCount * 65000;
 
-    // Row: JUMLAH
-    wsData.push([
-      '',
-      '',
-      '',
-      'JUMLAH',
-      { t: 'n', f: `SUM(E${dataStartRow}:E${dataEndRow})`, v: sumJumlah }
-    ]);
-
-    // Row: PPH 0,5%
-    wsData.push([
-      '',
-      '',
-      '',
-      'PPH 0,5%',
-      { t: 'n', f: `CEILING(E${jumlahRow}*0.005, 5000)`, v: pphVal }
-    ]);
-
-    // Row: Koli
-    wsData.push([
-      '',
-      '',
-      '',
-      'Koli',
-      { t: 'n', f: `COUNTA(A${dataStartRow}:A${dataEndRow})*5000`, v: koliVal }
-    ]);
+    wsData.push(['', '', '', 'JUMLAH', { t: 'n', f: `SUM(E${dataStartRow}:E${dataEndRow})`, v: sumJumlah }]);
+    wsData.push(['', '', '', 'PPH 0,5%', { t: 'n', f: `CEILING(E${jumlahRow}*0.005, 5000)`, v: pphVal }]);
+    wsData.push(['', '', '', 'Koli', { t: 'n', f: `COUNTA(A${dataStartRow}:A${dataEndRow})*5000`, v: koliVal }]);
 
     let totalFormula = `E${jumlahRow}-E${pphRow}-E${koliRow}`;
     let totalBersih = sumJumlah - pphVal - koliVal;
 
-    // Row: GT (if any GT exists)
     if (gtCount > 0) {
       const gtRow = koliRow + 1;
-      wsData.push([
-        '',
-        '',
-        '',
-        'GT',
-        { t: 'n', f: `COUNTIF(A${dataStartRow}:A${dataEndRow}, "GT*")*65000`, v: gtVal }
-      ]);
+      wsData.push(['', '', '', 'GT', { t: 'n', f: `COUNTIF(A${dataStartRow}:A${dataEndRow}, "GT*")*65000`, v: gtVal }]);
       totalFormula += `-E${gtRow}`;
       totalBersih -= gtVal;
     }
 
-    // Row: TOTAL
-    wsData.push([
-      '',
-      '',
-      '',
-      'TOTAL',
-      { t: 'n', f: totalFormula, v: totalBersih }
-    ]);
+    wsData.push(['', '', '', 'TOTAL', { t: 'n', f: totalFormula, v: totalBersih }]);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{ wch: 14 }, { wch: 11 }, { wch: 11 }, { wch: 15 }, { wch: 18 }];
+    ws['!pageSetup'] = { orientation: 'portrait', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+    ws['!margins'] = { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 };
 
-    ws['!cols'] = [
-      { wch: 14 },
-      { wch: 11 },
-      { wch: 11 },
-      { wch: 15 },
-      { wch: 18 }
-    ];
-
-    // Setup print fit to 1-page A4 Portrait
-    ws['!pageSetup'] = {
-      orientation: 'portrait',
-      paperSize: 9, // A4
-      fitToPage: true,
-      fitToWidth: 1,
-      fitToHeight: 0
-    };
-    ws['!margins'] = {
-      left: 0.5,
-      right: 0.5,
-      top: 0.5,
-      bottom: 0.5,
-      header: 0.2,
-      footer: 0.2
-    };
-
-    const rangeTag = startNo && endNo ? `${startNo}-${endNo}` : (startNo ? `Mulai-${startNo}` : 'Lengkap');
     XLSX.utils.book_append_sheet(wb, ws, `Nota ${rangeTag}`);
-
-    const safeName = finalNama.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `Nota_${safeName}_${rangeTag}_${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(wb, filename);
     showToast(`Nota Pembelian berhasil dibuat -> ${filename} (${filteredRows.length} bal)`, 'success', 5000);
   });
