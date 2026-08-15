@@ -593,20 +593,31 @@ body.light-theme .moon-icon { display: block; }
   border-color: var(--accent-primary);
 }
 
+/* Hide number spinner in inputs across all browsers */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* 11 Columns Interactive Grid Table */
 .table-scroll-container {
   overflow-x: auto;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
-  max-height: 440px;
+  max-height: 480px;
 }
 
 .grid-table {
   width: 100%;
   border-collapse: collapse;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   text-align: center;
 }
 
@@ -618,11 +629,13 @@ body.light-theme .moon-icon { display: block; }
 }
 
 .grid-table th {
-  padding: 0.65rem 0.5rem;
+  padding: 0.65rem 0.4rem;
   font-weight: 700;
   border-bottom: 2px solid var(--border-color);
   border-right: 1px solid var(--border-color);
   white-space: nowrap;
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
 }
 
 .grid-table th.th-fix {
@@ -631,7 +644,7 @@ body.light-theme .moon-icon { display: block; }
 }
 
 .grid-table td {
-  padding: 0.35rem 0.45rem;
+  padding: 0.3rem 0.25rem;
   border-bottom: 1px solid var(--border-color);
   border-right: 1px solid var(--border-color);
   vertical-align: middle;
@@ -643,13 +656,13 @@ body.light-theme .moon-icon { display: block; }
 
 .grid-input {
   width: 100%;
-  padding: 0.3rem 0.4rem;
+  padding: 0.35rem 0.25rem;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 4px;
   color: inherit;
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   text-align: center;
   transition: all var(--transition-fast);
 }
@@ -660,8 +673,15 @@ body.light-theme .moon-icon { display: block; }
   border-color: var(--accent-primary);
 }
 
+.grid-input-no {
+  font-weight: 700;
+  color: var(--accent-primary);
+  min-width: 48px;
+}
+
 .grid-input.align-left {
   text-align: left;
+  padding-left: 0.4rem;
 }
 
 .grid-input-fix {
@@ -677,6 +697,8 @@ body.light-theme .moon-icon { display: block; }
 
 .calc-val {
   font-weight: 600;
+  display: inline-block;
+  padding: 0.2rem 0.1rem;
 }
 
 .calc-val.net-val {

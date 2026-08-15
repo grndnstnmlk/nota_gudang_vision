@@ -424,17 +424,17 @@ document.addEventListener('DOMContentLoaded', () => {
     tobaccoData.forEach((row, idx) => {
       html += `
         <tr data-idx="${idx}">
-          <td><input type="number" class="grid-input" data-field="no" value="${row.no ?? (idx + 1)}" /></td>
-          <td><input type="text" class="grid-input" data-field="gl" value="${escapeHtml(row.gl || '')}" placeholder="gl" /></td>
-          <td><input type="text" class="grid-input" data-field="gt" value="${escapeHtml(row.gt || '')}" placeholder="GT" /></td>
-          <td><input type="text" class="grid-input align-left" data-field="nama" value="${escapeHtml(row.nama || '')}" placeholder="Nama / Tgl / Alamat" /></td>
-          <td><input type="text" class="grid-input" data-field="grade" value="${escapeHtml(row.grade || '')}" placeholder="58" /></td>
+          <td><input type="text" inputmode="numeric" class="grid-input grid-input-no" data-field="no" value="${escapeHtml(String(row.no ?? (idx + 1)))}" /></td>
+          <td><input type="text" class="grid-input" data-field="gl" value="${escapeHtml(row.gl || '')}" placeholder="" /></td>
+          <td><input type="text" class="grid-input" data-field="gt" value="${escapeHtml(row.gt || '')}" placeholder="" /></td>
+          <td><input type="text" class="grid-input align-left" data-field="nama" value="${escapeHtml(row.nama || '')}" placeholder="" /></td>
+          <td><input type="text" class="grid-input" data-field="grade" value="${escapeHtml(row.grade || '')}" placeholder="" /></td>
           <td><span class="calc-val">${row.harga ? Number(row.harga).toLocaleString('id-ID') : '-'}</span></td>
-          <td><input type="text" class="grid-input" data-field="kg" value="${escapeHtml(row.kg || '')}" placeholder="41.0" /></td>
+          <td><input type="text" class="grid-input" data-field="kg" value="${escapeHtml(row.kg || '')}" placeholder="" /></td>
           <td><span class="calc-val">${row.brt !== '' && row.brt !== null ? row.brt : '-'}</span></td>
-          <td><input type="text" class="grid-input grid-input-fix" data-field="brt_fix" value="${escapeHtml(row.brt_fix || '')}" placeholder="Fix" title="Isi manual jika bobot dari bos berbeda" /></td>
+          <td><input type="text" class="grid-input grid-input-fix" data-field="brt_fix" value="${escapeHtml(row.brt_fix || '')}" placeholder="" title="Isi manual jika bobot dari bos berbeda" /></td>
           <td><span class="calc-val net-val">${row.net !== '' && row.net !== null ? row.net : '-'}</span></td>
-          <td><input type="text" class="grid-input align-left" data-field="ket" value="${escapeHtml(row.ket || '')}" placeholder="Ket" /></td>
+          <td><input type="text" class="grid-input align-left" data-field="ket" value="${escapeHtml(row.ket || '')}" placeholder="" /></td>
           <td>
             <button type="button" class="btn-del-row" data-action="delete" data-idx="${idx}" title="Hapus baris">
               <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
