@@ -1270,38 +1270,54 @@ PENTING:
           }
         });
 
-        // Set column widths matching Python nota generator
+        // Set generous column widths so numbers never show #####
         ws.columns = [
-          { width: 14 },
-          { width: 12 },
-          { width: 12 },
-          { width: 14 },
-          { width: 18 }
+          { width: 14 }, // No. GUD
+          { width: 12 }, // BRUTO
+          { width: 12 }, // NETTO
+          { width: 16 }, // HARGA
+          { width: 24 }  // JUMLAH (Wide enough for large 8-figure numbers and Rp format)
         ];
 
         // Row Heights
-        ws.getRow(2).height = 20;
-        ws.getRow(4).height = 16;
-        ws.getRow(5).height = 16;
-        ws.getRow(6).height = 16;
-        ws.getRow(8).height = 18;
+        ws.getRow(2).height = 24;
+        ws.getRow(4).height = 17;
+        ws.getRow(5).height = 17;
+        ws.getRow(6).height = 17;
+        ws.getRow(8).height = 20;
 
-        // Embed Logo in cell A2:A3 if available
-        try {
-          const logoRes = await fetch('logo.png');
-          if (logoRes.ok) {
-            const logoBuffer = await logoRes.arrayBuffer();
+        // Embed Tobacco Leaf Logo in cell A2:A3 directly from base64
+        const b64Data = (typeof window !== 'undefined' && window.TOBACCO_LOGO_BASE64) ? window.TOBACCO_LOGO_BASE64 : null;
+        if (b64Data) {
+          try {
             const logoId = workbook.addImage({
-              buffer: logoBuffer,
+              base64: b64Data,
               extension: 'png'
             });
             ws.addImage(logoId, {
-              tl: { col: 0.15, row: 0.6 },
-              ext: { width: 52, height: 52 }
+              tl: { col: 0.1, row: 0.3 },
+              ext: { width: 56, height: 56 }
             });
+          } catch (imgErr) {
+            console.warn('[Nota] ExcelJS Logo Base64 error:', imgErr);
           }
-        } catch (imgErr) {
-          console.warn('[Nota] Logo image fetch skipped:', imgErr);
+        } else {
+          try {
+            const logoRes = await fetch('logo.png');
+            if (logoRes.ok) {
+              const logoBuffer = await logoRes.arrayBuffer();
+              const logoId = workbook.addImage({
+                buffer: logoBuffer,
+                extension: 'png'
+              });
+              ws.addImage(logoId, {
+                tl: { col: 0.1, row: 0.3 },
+                ext: { width: 56, height: 56 }
+              });
+            }
+          } catch (imgErr) {
+            console.warn('[Nota] Logo image fetch skipped:', imgErr);
+          }
         }
 
         // Title in B2
