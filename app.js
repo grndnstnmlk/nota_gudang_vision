@@ -1263,10 +1263,9 @@ PENTING:
           pageSetup: {
             paperSize: 9, // A4
             orientation: 'portrait',
-            fitToPage: true,
-            fitToWidth: 1,
-            fitToHeight: 0,
-            margins: { left: 1.0, right: 1.0, top: 1.0, bottom: 1.0 }
+            horizontalDpi: 300,
+            verticalDpi: 300,
+            margins: { left: 1.0, right: 1.0, top: 1.0, bottom: 1.0, header: 0.5, footer: 0.5 }
           }
         });
 
