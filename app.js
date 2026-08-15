@@ -483,25 +483,34 @@ document.addEventListener('DOMContentLoaded', () => {
       progressStatus.textContent = 'Vision AI membaca tulisan tangan & angka...';
       progressSub.textContent = 'Mengekstrak kolom NO, GL, GT, NAMA, GRADE, KG, dan BRT';
 
-      const prompt = `Anda adalah sistem OCR cerdas khusus membaca Buku Sortir Tembakau (catatan tulisan tangan dan formulir gudang).
-Tugas Anda: Ekstrak seluruh baris data pada foto tabel berkas ini ke dalam format JSON Array murni.
+      const prompt = `Anda adalah sistem Vision AI OCR cerdas khusus membaca Buku Sortir Tembakau (catatan tulisan tangan pulpen & formulir gudang tembakau).
+Tugas Anda: Ekstrak seluruh baris data pada foto kertas berkas ini ke dalam format JSON Array murni.
 
-Struktur kolom yang diharapkan per baris:
-- "no": nomor urut barang/bal (angka 1, 2, 3, dst.)
-- "gl": isi "gl" jika ada tanda 'gl' atau kolom GL terisi, jika tidak kosongkan ""
-- "gt": isi "GT" jika ada tanda 'GT' atau kolom GT terisi, jika tidak kosongkan ""
-- "nama": nama penjual/keterangan baris (contoh: "H. GHALIB", "(15/8/26)", "KADUR", dll)
-- "grade": angka mutu tembakau (contoh: 58, 55, 45, 65, dll)
-- "kg": berat timbangan dengan desimal jika ada (contoh: 41.0, 38.6, 47.6, 42.8)
-- "brt_fix": isi angka jika ada tulisan bobot fix manual khusus dari bos/mandor, jika tidak kosongkan ""
-- "ket": keterangan tambahan seperti "ada bs" atau lainnya jika ada
+ATURAN STRUKTUR KOLOM & POLA TULISAN TANGAN:
+1. "no": Nomor urut baris (misal: 122, 123, 124, 125... atau 301, 302...).
+2. "gl": 
+   - Periksa margin kiri di luar tabel dan di dalam baris. 
+   - Jika ada tulisan "GL" atau "gl" (baik di luar tabel sebelah kiri no/nama, atau di dalam kolom), isi "gl". Jika tidak ada, isi "".
+3. "gt": 
+   - Jika ada tulisan "GT" atau "gt" pada baris tersebut, isi "GT". Jika tidak ada, isi "".
+4. "nama": 
+   - Berisi nama petani/penjual (misal: "AMIR", "H. MAHFUD", "Bahrudin", "H. HANAN"), tanggal (misal: "(10/8/26)", "(9/8 26)"), atau alamat (misal: "KADUR").
+   - Jika baris tersebut HANYA berisi tulisan "GL" atau "GT" tanpa nama orang, kosongkan "nama": "" (karena kodenya sudah dipindah ke kolom gl/gt).
+5. "grade": Angka grade tembakau (misal: 68, 65, 60, 58, 57, 56, 55, 53, 52, 45, 42, 41, 40, 37, dll).
+6. "kg": Berat timbangan dengan pecahan desimal asli (misal: 47.5, 46.5, 45.4, 44.9, 40.4, 30.5, 38.5, 31.3, 30.0, 48.4).
+7. "brt_fix": 
+   - Kolom persis SETELAH kolom KG (pada lembar lama judul kolomnya bertuliskan "KET", pada lembar baru bertuliskan "BRT").
+   - Ini adalah angka berat bulat fisik tulisan tangan checker (misal: 47, 46, 44, 39, 30, 38, 45, 37, 28, dll).
+   - Masukkan angka tulisan tangan di kolom tersebut ke "brt_fix". Jika kosong di kertas, isi "".
+8. "ket": Catatan khusus seperti "ada bs", "BS - 20", "r", "l", atau coretan tambahan lainnya jika ada.
 
 PENTING:
-1. Pastikan angka desimal KG terbaca teliti (.0, .1, .2, .3, .4, .5, .6, .7, .8, .9).
-2. Kembalikan HANYA format JSON valid tanpa kata pengantar, seperti:
+- Pastikan angka desimal KG terbaca sangat teliti (.0, .1, .2, .3, .4, .5, .6, .7, .8, .9).
+- Kembalikan HANYA format JSON valid tanpa kata pengantar apa pun, seperti:
 [
-  {"no": 1, "gl": "", "gt": "", "nama": "H. GHALIB", "grade": "58", "kg": "41.0", "brt_fix": "", "ket": ""},
-  {"no": 2, "gl": "", "gt": "", "nama": "(15/8/26)", "grade": "58", "kg": "40.0", "brt_fix": "", "ket": ""}
+  {"no": 125, "gl": "gl", "gt": "", "nama": "AMIR", "grade": "65", "kg": "40.4", "brt_fix": "39", "ket": ""},
+  {"no": 126, "gl": "gl", "gt": "", "nama": "(10/8/26)", "grade": "65", "kg": "30.5", "brt_fix": "30", "ket": ""},
+  {"no": 127, "gl": "gl", "gt": "", "nama": "", "grade": "65", "kg": "38.5", "brt_fix": "38", "ket": ""}
 ]`;
 
       // Build candidates list with automatic fallback
@@ -655,26 +664,28 @@ PENTING:
   // =========================================================================
   btnLoadDemoSample.addEventListener('click', () => {
     tobaccoData = [
-      { no: 1, gl: '', gt: '', nama: 'H. GHALIB', grade: '58', harga: 58000, kg: '41.0', brt: 38, brt_fix: '38', net: 35, ket: '' },
-      { no: 2, gl: '', gt: '', nama: '(15/8/26)', grade: '58', harga: 58000, kg: '40.0', brt: 37, brt_fix: '37', net: 34, ket: '' },
-      { no: 3, gl: '', gt: '', nama: '', grade: '58', harga: 58000, kg: '39.0', brt: 36, brt_fix: '36', net: 33, ket: '' },
-      { no: 4, gl: '', gt: 'GT', nama: '', grade: '58', harga: 58000, kg: '33.0', brt: 30, brt_fix: '30', net: 27, ket: '' },
-      { no: 5, gl: '', gt: '', nama: '', grade: '58', harga: 58000, kg: '41.0', brt: 38, brt_fix: '38', net: 35, ket: '' },
-      { no: 6, gl: '', gt: '', nama: '', grade: '58', harga: 58000, kg: '39.0', brt: 36, brt_fix: '36', net: 33, ket: '' },
-      { no: 7, gl: '', gt: '', nama: '', grade: '58', harga: 58000, kg: '39.0', brt: 36, brt_fix: '36', net: 33, ket: '' },
-      { no: 8, gl: '', gt: 'GT', nama: '', grade: '58', harga: 58000, kg: '36.0', brt: 33, brt_fix: '33', net: 30, ket: '' },
-      { no: 9, gl: '', gt: '', nama: '', grade: '55', harga: 55000, kg: '42.0', brt: 39, brt_fix: '39', net: 36, ket: '' },
-      { no: 10, gl: '', gt: 'GT', nama: '', grade: '56', harga: 56000, kg: '50.0', brt: 47, brt_fix: '47', net: 43, ket: '' },
-      { no: 11, gl: '', gt: 'GT', nama: '', grade: '56', harga: 56000, kg: '39.0', brt: 36, brt_fix: '36', net: 33, ket: '' },
-      { no: 12, gl: '', gt: '', nama: '', grade: '55', harga: 55000, kg: '38.0', brt: 35, brt_fix: '35', net: 32, ket: '' },
-      { no: 36, gl: '', gt: '', nama: 'Zaini', grade: '45', harga: 45000, kg: '38.6', brt: 38, brt_fix: '', net: 35, ket: '' },
-      { no: 37, gl: '', gt: '', nama: '(15/8/26)', grade: '45', harga: 45000, kg: '47.6', brt: 47, brt_fix: '', net: 44, ket: '' },
-      { no: 38, gl: '', gt: '', nama: 'KADUR', grade: '46', harga: 46000, kg: '46.4', brt: 45, brt_fix: '', net: 42, ket: '' },
-      { no: 39, gl: '', gt: '', nama: '', grade: '46', harga: 46000, kg: '38.2', brt: 37, brt_fix: '', net: 34, ket: '' }
+      { no: 125, gl: 'gl', gt: '', nama: 'AMIR', grade: '65', harga: 64000, kg: '40.4', brt: 39, brt_fix: '39', net: 37, ket: '' },
+      { no: 126, gl: 'gl', gt: '', nama: '(10/8/26)', grade: '65', harga: 64000, kg: '30.5', brt: 30, brt_fix: '30', net: 28, ket: '' },
+      { no: 127, gl: 'gl', gt: '', nama: '', grade: '65', harga: 64000, kg: '38.5', brt: 38, brt_fix: '38', net: 36, ket: '' },
+      { no: 128, gl: 'gl', gt: '', nama: '', grade: '60', harga: 59000, kg: '47.0', brt: 46, brt_fix: '46', net: 44, ket: '' },
+      { no: 129, gl: 'gl', gt: '', nama: '', grade: '60', harga: 59000, kg: '45.9', brt: 45, brt_fix: '45', net: 43, ket: '' },
+      { no: 130, gl: 'gl', gt: '', nama: 'H. MAHFUD', grade: '57', harga: 56000, kg: '45.9', brt: 44, brt_fix: '44', net: 42, ket: '' },
+      { no: 131, gl: 'gl', gt: '', nama: '(10/8/26)', grade: '61', harga: 60000, kg: '42.4', brt: 41, brt_fix: '41', net: 39, ket: '' },
+      { no: 132, gl: 'gl', gt: '', nama: '', grade: '52', harga: 51000, kg: '40.1', brt: 39, brt_fix: '39', net: 37, ket: '' },
+      { no: 138, gl: 'gl', gt: '', nama: 'Amir', grade: '62', harga: 61000, kg: '48.8', brt: 48, brt_fix: '48', net: 46, ket: '' },
+      { no: 139, gl: 'gl', gt: '', nama: '(10/8/26)', grade: '62', harga: 61000, kg: '50.3', brt: 50, brt_fix: '50', net: 48, ket: '' },
+      { no: 142, gl: 'gl', gt: '', nama: 'Bahrudin', grade: '40', harga: 39000, kg: '38.3', brt: 37, brt_fix: '37', net: 35, ket: '' },
+      { no: 143, gl: 'gl', gt: '', nama: '', grade: '40', harga: 39000, kg: '41.7', brt: 41, brt_fix: '41', net: 39, ket: '' },
+      { no: 148, gl: 'gl', gt: '', nama: 'H. HANAN', grade: '55', harga: 54000, kg: '31.5', brt: 30, brt_fix: '30', net: 28, ket: '' },
+      { no: 149, gl: 'gl', gt: '', nama: '(10/8/26)', grade: '63', harga: 62000, kg: '45.6', brt: 45, brt_fix: '45', net: 43, ket: '' },
+      { no: 301, gl: '', gt: '', nama: '', grade: '53', harga: 52000, kg: '31.3', brt: 30, brt_fix: '30', net: 27, ket: 'h' },
+      { no: 302, gl: '', gt: '', nama: '', grade: '45', harga: 44000, kg: '30.0', brt: 29, brt_fix: '29', net: 26, ket: '' },
+      { no: 303, gl: '', gt: '', nama: '', grade: '42', harga: 41000, kg: '48.4', brt: 47, brt_fix: '47', net: 44, ket: '' },
+      { no: 305, gl: '', gt: '', nama: '', grade: '56', harga: 55000, kg: '38.4', brt: 37, brt_fix: '37', net: 34, ket: 'r' }
     ];
 
     renderGridTable();
-    showToast('Sampel Buku Sortir berhasil dimuat!', 'success');
+    showToast('Sampel Berkas Fisik Tembakau (Amir, Mahfud, Bahrudin, Hanan) berhasil dimuat!', 'success');
   });
 
   // =========================================================================
