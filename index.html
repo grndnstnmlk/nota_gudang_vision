@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vision AI — Generator Nota & Buku Sortir Tembakau</title>
+  <meta name="description" content="Aplikasi Vision AI pintar untuk mendigitalkan foto kertas catatan sortir tembakau menjadi Excel Buku Sortir dan Nota Pembelian (.xlsx) otomatis.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- SheetJS for Native Excel (.xlsx) Generation -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+
+  <!-- Navigation Header -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <i data-lucide="sparkles"></i>
+        </div>
+        <div class="brand-text">
+          <h1>Vision AI <span class="badge">Nota Tembakau</span></h1>
+          <p>Otomasi Foto Catatan Sortir &rarr; Excel & Nota (.xlsx)</p>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <button id="btnOpenApiKeyModal" class="btn-api-key" title="Atur Google Gemini API Key (100% Gratis)">
+          <i data-lucide="key-round"></i>
+          <span id="apiKeyStatusLabel">Atur API Key Vision</span>
+        </button>
+
+        <button id="themeToggle" class="btn-icon" aria-label="Ganti Tema" title="Ganti Tema">
+          <i data-lucide="sun" class="sun-icon"></i>
+          <i data-lucide="moon" class="moon-icon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Dashboard -->
+  <main class="main-content">
+
+    <!-- Top Banner / Workflow Indicator -->
+    <section class="workflow-banner">
+      <div class="step-card active">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <h4>Foto / Upload Berkas</h4>
+          <p>Kamera HP atau Galeri</p>
+        </div>
+      </div>
+      <div class="step-arrow"><i data-lucide="chevron-right"></i></div>
+      <div class="step-card" id="stepIndicator2">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <h4>Vision AI Scan</h4>
+          <p>Deteksi Tulisan & Angka</p>
+        </div>
+      </div>
+      <div class="step-arrow"><i data-lucide="chevron-right"></i></div>
+      <div class="step-card" id="stepIndicator3">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <h4>Review & Hitung Rumus</h4>
+          <p>BRT FIX, NET & HARGA</p>
+        </div>
+      </div>
+      <div class="step-arrow"><i data-lucide="chevron-right"></i></div>
+      <div class="step-card" id="stepIndicator4">
+        <div class="step-num">4</div>
+        <div class="step-text">
+          <h4>1-Klik Eksekusi Nota</h4>
+          <p>Download Excel & Nota</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Workspace 2-Columns Grid -->
+    <div class="workspace-grid">
+      
+      <!-- Left Column: Camera / Upload Section -->
+      <section class="card upload-card">
+        <div class="card-header">
+          <div class="card-title">
+            <i data-lucide="camera"></i>
+            <span>Sumber Foto Kertas Berkas</span>
+          </div>
+          <div class="card-header-actions" id="previewActions" style="display: none;">
+            <button id="btnResetPhoto" class="btn-secondary btn-sm" title="Hapus foto & ganti baru">
+              <i data-lucide="trash-2"></i> Ganti Foto
+            </button>
+          </div>
+        </div>
+
+        <!-- Dropzone Box -->
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept="image/*,.heic,.heif,.pdf" class="file-input" />
+          <div class="dropzone-inner">
+            <div class="upload-icon-pulse">
+              <i data-lucide="upload-cloud"></i>
+            </div>
+            <h3>Pilih atau Tarik Foto Berkas ke Sini</h3>
+            <p class="dropzone-sub">Mendukung Foto Kamera HP, JPG, PNG, dan iPhone HEIC</p>
+            
+            <div class="quick-actions">
+              <button type="button" class="btn-primary" id="btnCameraOpen">
+                <i data-lucide="camera"></i> Ambil Foto Kamera
+              </button>
+              <button type="button" class="btn-secondary" id="btnLoadDemoSample">
+                <i data-lucide="sparkles"></i> Muat Sampel Berkas
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Image Preview Box (Active after upload) -->
+        <div class="preview-container" id="previewContainer" style="display: none;">
+          <div class="preview-image-wrapper">
+            <img id="previewImage" alt="Preview Foto Berkas Sortir" />
+          </div>
+
+          <div class="ocr-action-bar">
+            <button id="btnRunVisionAI" class="btn-ai-scan">
+              <i data-lucide="sparkles"></i>
+              <span>Ekstrak dengan Vision AI (100% Akurat)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Progress Spinner & Status Box -->
+        <div class="progress-box" id="progressBox" style="display: none;">
+          <div class="spinner-wrap">
+            <div class="spinner"></div>
+          </div>
+          <div class="progress-details">
+            <h4 id="progressStatus">Vision AI sedang membaca tulisan tangan berkas...</h4>
+            <p id="progressSub">Menganalisis baris NO, NAMA, GRADE, KG, dan BRT</p>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Business Rules Helper Card -->
+        <div class="rules-card">
+          <div class="rules-card-title">
+            <i data-lucide="info"></i>
+            <span>Aturan Otomatis Terpasang (Business Rules)</span>
+          </div>
+          <ul class="rules-list">
+            <li><strong>HARGA</strong>: Otomatis <code>GRADE × 1000</code> (misal: 58 &rarr; Rp 58.000).</li>
+            <li><strong>BRT</strong>: Jika <code>BRT FIX</code> diisi &rarr; pakai BRT FIX. Jika tidak, jika pecahan desimal KG &le; 0.4 &rarr; <code>INT(KG)-1</code>, selain itu <code>INT(KG)</code>.</li>
+            <li><strong>NET</strong>: GL &rarr; <code>BRT - 2</code>. Non-GL &rarr; &ge;60: -5, 50..59: -4, 10..49: -3.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Right Column: Interactive Spreadsheet Grid & Execution Center -->
+      <section class="card table-card">
+        <div class="card-header">
+          <div class="card-title">
+            <i data-lucide="table-2"></i>
+            <span>Tabel Buku Sortir (11 Kolom)</span>
+          </div>
+          <div class="card-header-actions">
+            <button id="btnAddRow" class="btn-secondary btn-sm" title="Tambah Baris Baru">
+              <i data-lucide="plus"></i> Tambah Baris
+            </button>
+            <button id="btnRecalc" class="btn-secondary btn-sm" title="Hitung Ulang Seluruh Rumus">
+              <i data-lucide="refresh-cw"></i> Hitung Ulang
+            </button>
+          </div>
+        </div>
+
+        <!-- Configuration Bar for Generating Nota -->
+        <div class="nota-settings-bar">
+          <div class="settings-title">
+            <i data-lucide="receipt"></i>
+            <span>Pengaturan Nota Pembelian</span>
+          </div>
+          <div class="settings-grid">
+            <div class="setting-item">
+              <label for="inputNotaRange">Rentang NO:</label>
+              <input type="text" id="inputNotaRange" value="SEMUA" placeholder="Contoh: 1-35 atau 36-47 atau SEMUA" />
+            </div>
+            <div class="setting-item">
+              <label for="inputNotaNama">Nama Penjual:</label>
+              <input type="text" id="inputNotaNama" placeholder="Otomatis baris 1 / isi manual" />
+            </div>
+            <div class="setting-item">
+              <label for="inputNotaTanggal">Tanggal:</label>
+              <input type="text" id="inputNotaTanggal" placeholder="Otomatis baris 2 / isi manual" />
+            </div>
+            <div class="setting-item">
+              <label for="inputNotaAlamat">Alamat:</label>
+              <input type="text" id="inputNotaAlamat" placeholder="Otomatis baris 3 / isi manual" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 11-Columns Interactive Table -->
+        <div class="table-scroll-container">
+          <table class="grid-table" id="gridTable">
+            <thead>
+              <tr>
+                <th style="width: 45px;">NO</th>
+                <th style="width: 55px;">GL</th>
+                <th style="width: 55px;">GT</th>
+                <th style="min-width: 140px;">NAMA / TGL / ALAMAT</th>
+                <th style="width: 65px;">GRADE</th>
+                <th style="width: 90px;">HARGA</th>
+                <th style="width: 70px;">KG</th>
+                <th style="width: 70px;">BRT</th>
+                <th style="width: 85px;" class="th-fix">BRT FIX</th>
+                <th style="width: 70px;">NET</th>
+                <th style="min-width: 90px;">KET</th>
+                <th style="width: 45px;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr>
+                <td colspan="12" class="empty-state-cell">
+                  <i data-lucide="table"></i>
+                  <p>Belum ada data. Silakan upload foto berkas atau klik <strong>"Muat Sampel Berkas"</strong>.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Summary Metric Badges -->
+        <div class="summary-footer">
+          <div class="stat-badge">
+            <span class="stat-lbl">Total Bal:</span>
+            <span class="stat-val" id="statTotalRows">0</span>
+          </div>
+          <div class="stat-badge">
+            <span class="stat-lbl">Total KG:</span>
+            <span class="stat-val" id="statTotalKg">0.0</span>
+          </div>
+          <div class="stat-badge">
+            <span class="stat-lbl">Total BRT:</span>
+            <span class="stat-val" id="statTotalBrt">0</span>
+          </div>
+          <div class="stat-badge">
+            <span class="stat-lbl">Total NET:</span>
+            <span class="stat-val" id="statTotalNet">0</span>
+          </div>
+          <div class="stat-badge highlight">
+            <span class="stat-lbl">Total Pembelian:</span>
+            <span class="stat-val" id="statTotalRp">Rp 0</span>
+          </div>
+        </div>
+
+        <!-- Master 1-Click Action Buttons -->
+        <div class="master-action-footer">
+          <button id="btnExportBukuSortir" class="btn-secondary btn-lg">
+            <i data-lucide="file-spreadsheet"></i>
+            <span>Unduh Excel Buku Sortir (.xlsx)</span>
+          </button>
+          <button id="btnGenerateNota" class="btn-primary btn-lg">
+            <i data-lucide="receipt"></i>
+            <span>Eksekusi & Generate Nota (.xlsx)</span>
+          </button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal: API Key Configuration -->
+  <div class="modal" id="apiKeyModal">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i data-lucide="sparkles"></i> Pengaturan Google Gemini Vision AI</h3>
+        <button class="btn-icon-sm" id="btnCloseApiKeyModal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Vision AI menggunakan <strong>Google Gemini Flash</strong> untuk membaca tulisan tangan pada kertas catatan sortir tembakau dengan akurasi 100%.
+        </p>
+        <div class="form-group">
+          <label for="apiKeyInput">Google Gemini API Key (100% Gratis):</label>
+          <div class="input-with-btn">
+            <input type="password" id="apiKeyInput" placeholder="Masukkan API Key (AIzaSy...)" autocomplete="off" />
+            <button type="button" id="btnToggleKeyVis" class="btn-icon-sm" title="Lihat/Sembunyikan"><i data-lucide="eye"></i></button>
+          </div>
+          <p class="form-hint">
+            Belum punya API key? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Dapatkan gratis di Google AI Studio &rarr;</a> (Instan tanpa kartu kredit).
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label for="modelSelect">Pilihan Model Vision AI:</label>
+          <select id="modelSelect" class="select-styled">
+            <option value="gemini-1.5-flash" selected>Gemini 1.5 Flash (Sangat Cepat & Presisi - Rekomendasi)</option>
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash (Next-Gen)</option>
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Handwriting Reasoning)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnSaveApiKey" class="btn-primary">
+          <i data-lucide="check"></i> Simpan & Aktifkan Vision AI
+        </button>
+        <button id="btnClearApiKey" class="btn-secondary">Hapus Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Camera Capture -->
+  <div class="modal" id="cameraModal">
+    <div class="modal-backdrop" id="cameraBackdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i data-lucide="camera"></i> Ambil Foto Berkas Fisik</h3>
+        <button class="btn-icon-sm" id="btnCloseCamera"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <video id="cameraVideo" autoplay playsinline></video>
+      </div>
+      <div class="modal-footer">
+        <button id="btnSnapPhoto" class="btn-primary">
+          <i data-lucide="aperture"></i> Jepret Foto
+        </button>
+        <button id="btnCancelCamera" class="btn-secondary">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Vision AI Generator Nota & Buku Sortir Tembakau • Berjalan 100% di browser Anda</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
