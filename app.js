@@ -1068,37 +1068,43 @@ document.addEventListener('DOMContentLoaded', () => {
 Tugas Anda: Ekstrak seluruh baris data pada foto kertas berkas ini ke dalam format JSON Array murni.
 
 ATURAN STRUKTUR KOLOM & POLA TULISAN TANGAN:
-1. "no": Nomor urut baris (misal: 185, 186, 187, 200, 201... atau 271, 284, 285...).
+1. "no": Nomor urut baris (misal: 121, 122, 123, 125, 130, 138, 142, 148, 185...).
 2. "nama": 
-   - Berisi nama petani/penjual (misal: "KURDI", "H. HANAN", "ZAKIR", "AMIR", "H. MAHFUD", "BRUDIN", "Bahruddin"), tanggal (misal: "13/8/26", "(13/8 26)", "10/8/26"), atau alamat (misal: "KADUR").
+   - Berisi nama petani/penjual (misal: "H. HANAN", "AMIR", "H. MAHFUD", "Bahrudin", "KURDI", "BRUDIN"), tanggal (misal: "13/8/26", "(10/8/26)", "(9/8 26)"), atau alamat (misal: "KADUR").
    - PENTING ATURAN NOTA & NOMOR LOT HARIAN:
      * Garis horizontal merah atau spasi pada berkas adalah PEMBATAS antar nota pembelian.
      * Jika di samping atau di bawah nama petani ada angka dalam kurung atau angka urutan nota seperti "(2)", "2", "(1)", "(3)", gabungkan ke dalam nama petani tersebut (misal: "BRUDIN (2)" atau "H. MAHFUD").
      * JANGAN memisahkan angka "(2)" atau "2" menjadi nama petani tersendiri di baris baru!
-   - Jika baris tersebut hanya berupa coretan kode "G" / "GL" / "GT", kosongkan "nama": "".
-3. "gl": 
-   - Isi "gl" jika ada tulisan "G", "GL", atau "gl" (baik di margin kiri luar tabel, di kolom nama, atau di kolom khusus). Jika tidak, isi "".
-4. "gt": 
-   - Isi "GT" jika ada tulisan "GT" atau "gt". Jika tidak, isi "".
-5. "grade": Angka grade tembakau (misal: 48, 45, 46, 37, 32, 65, 57, 55, 61, 50, 43, dll).
+3. "gl" (TEMBAKAU GL) - SANGAT PENTING:
+   - Di formulir fisik, tulisan "GL" (atau "gl" atau "Gl" atau "G") SERING SEKALI DITULIS LANGSUNG DI DALAM KOLOM NAMA pada baris-baris tembakau (seperti baris 127..129, 132..137, 140..141, 143..147, 150)!
+   - ATAU tulisan "GL" / "G" ditulis di margin sebelah kiri luar nomor baris (di samping No. 125, 130, 138, 142, 148).
+   - ATURAN DETEKSI GL:
+     * Jika di kolom nama atau margin tertulis "GL" / "gl" / "G", baris tersebut WAJIB diisi "gl": "gl".
+     * Kolom "nama" baris tersebut dikosongkan "" (JANGAN tulis "GL" sebagai nama orang!).
+     * JIKA satu kelompok nota (antara 2 garis merah) ditandai GL di margin atau di baris-barisnya, maka SEMUA baris di kelompok tersebut berjenis "gl": "gl"!
+4. "gt" (TEMBAKAU GT) - SANGAT PENTING:
+   - Tulisan "GT" (atau "gt") di kolom nama (seperti baris 123, 124) menandakan tembakau GT:
+     * Baris tersebut WAJIB diisi "gt": "GT" dan "gl": "".
+     * Kolom "nama" baris tersebut dikosongkan "".
+5. "grade": Angka grade tembakau (misal: 68, 65, 62, 60, 57, 55, 52, 48, 45, 41, 40, 37, 32, dll).
 6. "kg": 
    - Berat timbangan kotor WAJIB DITULIS LENGKAP DENGAN PECAHAN DESIMALNYA!
-   - Contoh: "45.5", "44.2", "42.2", "45.9", "38.1", "48.8", "44.5", "35.6", "35.5", "38.8", "37.2", "46.6", "47.8", "38.5", "29.4", "36.9", "34.0", "45.8", "46.7", "37.2", "38.1", "38.6".
+   - Contoh: "47.5", "46.5", "45.4", "44.9", "40.4", "30.5", "38.5", "47.0", "45.9", "45.9", "42.4", "40.1", "41.1", "48.8", "50.3", "49.2", "51.2", "38.3", "41.7", "49.8", "50.4", "46.6", "48.1", "31.5", "45.6", "40.7".
    - JANGAN dibulatkan dan JANGAN dihilangkan angka di belakang komanya!
 7. "brt_fix": 
-   - Kolom persis SETELAH kolom KG (pada tabel tercetak sebagai kolom BRT atau KET).
+   - Kolom persis SETELAH kolom KG (pada tabel tercetak sebagai kolom KET atau BRT).
    - ATURAN MUTLAK:
-     * JIKA kolom BRT pada kertas TERISI angka tulisan tangan (misal: 45, 43, 41, 37, 35, 34, 32...), maka masukkan angka tersebut ke "brt_fix".
-     * JIKA kolom BRT pada kertas KOSONG / tidak ditulis (seperti pada beberapa baris), maka KOSONGKAN "brt_fix": "" (sistem akan menghitung otomatis).
+     * JIKA kolom KET/BRT pada kertas TERISI angka tulisan tangan (misal: 47, 46, 44, 39, 30, 38, 46, 45, 44, 41, 39, 40, 27, 28, 48, 50, 48, 50, 37, 41, 49, 46, 47, 30, 45, 39...), maka masukkan angka tersebut ke "brt_fix".
+     * JIKA kolom BRT pada kertas KOSONG, maka KOSONGKAN "brt_fix": "" (sistem akan menghitung otomatis).
 8. "ket": Catatan khusus jika ada (misal "BS", "BS - 20", "ada bs", "- 2", "- 3", dll).
 9. "BS" (BARANG SORTIR / TEMBAKAU BS):
-   - Sering tertulis di baris paling bawah, di luar tabel, atau pada baris khusus (misal: "(BAHRUDIN) BS - 20  66.2  64" atau "BRUDIN (2) BS 20 - 32.5 - 31" atau "BS 25" atau "BS-25").
+   - Sering tertulis di baris paling bawah, di luar tabel, atau pada baris khusus (misal: "(BAHRUDIN) BS - 20  66.2  64" atau "(BAHRUDIN) BS - 20 (10/8 26)  66.2  64").
    - ATURAN MUTLAK BS:
      * Angka setelah tulisan BS adalah GRADE-nya! (misal "BS - 20" -> "grade": "20", "BS-25" -> "grade": "25", "BS 18" -> "grade": "18").
      * "ket": diisi "BS" atau "BS - 20".
-     * "nama": diisi nama yang tertulis di sampingnya (misal "BRUDIN (2)" atau "BAHRUDIN").
-     * "kg": diisi berat desimalnya (misal "32.5").
-     * "brt_fix": diisi berat bulatnya jika ada (misal "31").
+     * "nama": diisi nama yang tertulis di sampingnya (misal "BAHRUDIN").
+     * "kg": diisi berat desimalnya (misal "66.2").
+     * "brt_fix": diisi berat bulatnya jika ada (misal "64").
      * "no": diisi nomor urut setelah baris sebelumnya.
 
 PENTING:
@@ -1251,7 +1257,8 @@ PENTING:
       progressStatus.textContent = 'Menghitung rumus otomatis...';
 
       if (allExtractedRows.length > 0) {
-        tobaccoData = allExtractedRows.map((r, i) => {
+        // Pass 1: Normalize row values and detect GL / GT
+        const mappedRows = allExtractedRows.map((r, i) => {
           const noVal = r.no ? Number(r.no) : (i + 1);
 
           let glVal = String(r.gl || '').trim().toLowerCase();
@@ -1275,8 +1282,6 @@ PENTING:
           else gtVal = '';
 
           const brtVal = calc_brt(r.kg, r.brt_fix);
-          const netVal = calc_net(brtVal, glVal);
-          const hrgVal = calc_harga(r.grade);
 
           return {
             no: noVal,
@@ -1284,13 +1289,54 @@ PENTING:
             gt: gtVal,
             nama: namaVal,
             grade: r.grade ? String(r.grade) : '',
-            harga: hrgVal,
+            harga: 0,
             kg: r.kg ? String(r.kg) : '',
             brt: brtVal,
             brt_fix: r.brt_fix ? String(r.brt_fix) : '',
-            net: netVal,
+            net: 0,
             ket: r.ket || ''
           };
+        });
+
+        // Pass 2: Lot GL Inheritance (propagate GL to all rows within a farmer's lot)
+        // A farmer's lot spans from one header name until the next header name
+        let currentLotHasGl = false;
+        let lotStartIdx = 0;
+
+        for (let i = 0; i <= mappedRows.length; i++) {
+          const isEnd = (i === mappedRows.length);
+          const isNewHeader = !isEnd && isHeaderNameToken(mappedRows[i].nama);
+
+          if (isNewHeader || isEnd) {
+            if (i > lotStartIdx) {
+              // Check if any row in this lot had GL marker
+              let lotGl = false;
+              for (let j = lotStartIdx; j < i; j++) {
+                if (mappedRows[j].gl === 'gl') {
+                  lotGl = true;
+                  break;
+                }
+              }
+              // If lot has GL, set all rows (unless explicitly GT or BS) to GL
+              if (lotGl) {
+                for (let j = lotStartIdx; j < i; j++) {
+                  if (mappedRows[j].gt !== 'GT' && !isBsRow(mappedRows[j])) {
+                    mappedRows[j].gl = 'gl';
+                  }
+                }
+              }
+            }
+            lotStartIdx = i;
+          }
+        }
+
+        // Final Pass: calculate NET and HARGA for all rows
+        tobaccoData = mappedRows.map(r => {
+          const hrgVal = calc_harga(r.grade);
+          const netVal = calc_net(r.brt, r.gl);
+          r.harga = hrgVal;
+          r.net = netVal;
+          return r;
         });
 
         renderGridTable();
