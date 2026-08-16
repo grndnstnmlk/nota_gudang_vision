@@ -1434,12 +1434,20 @@ PENTING:
   // =========================================================================
   const inputNotaFrom = document.getElementById('inputNotaFrom');
   const inputNotaTo = document.getElementById('inputNotaTo');
+  const selectNotaPph = document.getElementById('selectNotaPph');
   const btnApplyAllRange = document.getElementById('btnApplyAllRange');
   const notaPresetsContainer = document.getElementById('notaPresetsContainer');
   const notaPreviewText = document.getElementById('notaPreviewText');
   const notaPreviewBal = document.getElementById('notaPreviewBal');
   const notaPreviewNet = document.getElementById('notaPreviewNet');
   const notaPreviewRp = document.getElementById('notaPreviewRp');
+
+  if (selectNotaPph) {
+    selectNotaPph.addEventListener('change', () => {
+      updateNotaLiveSummary(false);
+      triggerAutoSave();
+    });
+  }
 
   // =========================================================================
   // BS Identification & Farmer Association Helpers
@@ -1841,7 +1849,8 @@ PENTING:
     const autoTanggal = info.tanggal;
     const autoAlamat = info.alamat;
 
-    const pphVal = Math.ceil((sumJumlah * 0.01) / 5000) * 5000;
+    const pphRate = selectNotaPph ? (parseFloat(selectNotaPph.value) || 0) : 0.01;
+    const pphVal = pphRate > 0 ? Math.ceil((sumJumlah * pphRate) / 5000) * 5000 : 0;
     const koliVal = rows.length * 5000;
     const gtVal = gtCount * 65000;
     const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
@@ -2228,7 +2237,11 @@ PENTING:
         const rKoli = gtCount > 0 ? rPph + 2 : rPph + 1;
         const rTot = gtCount > 0 ? rKoli + 1 : rKoli + 1;
 
-        const pphVal = Math.ceil((sumJumlah * 0.01) / 5000) * 5000;
+        const pphRate = selectNotaPph ? (parseFloat(selectNotaPph.value) || 0) : 0.01;
+        const pphVal = pphRate > 0 ? Math.ceil((sumJumlah * pphRate) / 5000) * 5000 : 0;
+        const pphLabel = pphRate === 0.005 ? 'PPH 0.5%' : (pphRate === 0.01 ? 'PPH 1%' : 'PPH 0%');
+        const pphFormula = pphRate > 0 ? `CEILING(E${rJml}*${pphRate},5000)` : `0`;
+
         const koliVal = filteredRows.length * 5000;
         const gtVal = gtCount * 65000;
         const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
@@ -2253,7 +2266,7 @@ PENTING:
         };
 
         addFooterRow(rJml, 'JUMLAH ', `SUM(E${dataStart}:E${dataEnd})`, sumJumlah, '#,##0');
-        addFooterRow(rPph, 'PPH 1%', `CEILING(E${rJml}*0.01,5000)`, pphVal, '#,##0');
+        addFooterRow(rPph, pphLabel, pphFormula, pphVal, '#,##0');
         if (gtCount > 0) {
           addFooterRow(rGt, 'GT', `65000*COUNTIF(A${dataStart}:A${dataEnd},"GT*")`, gtVal, '"Rp"#,##0');
         }
@@ -2479,7 +2492,7 @@ PENTING:
           </tr>
           <tr class="footer-row">
             <td colspan="3" style="border: none !important;"></td>
-            <td class="align-right">PPH 1%</td>
+            <td class="align-right">${selectNotaPph && selectNotaPph.value === '0.005' ? 'PPH 0,5%' : (selectNotaPph && selectNotaPph.value === '0' ? 'PPH 0%' : 'PPH 1%')}</td>
             <td class="align-right">${pphVal.toLocaleString('id-ID')}</td>
           </tr>
           <tr class="footer-row">
@@ -2884,6 +2897,7 @@ PENTING:
       const sessionData = {
         updatedAt: new Date().toISOString(),
         tobaccoData: tobaccoData,
+        pphRate: selectNotaPph ? selectNotaPph.value : '0.01',
         inputFrom: inputNotaFrom ? inputNotaFrom.value : '',
         inputTo: inputNotaTo ? inputNotaTo.value : '',
         inputNama: inputNotaNama ? inputNotaNama.value : '',
@@ -2911,6 +2925,7 @@ PENTING:
       const saved = JSON.parse(savedStr);
       if (saved && Array.isArray(saved.tobaccoData) && saved.tobaccoData.length > 0) {
         tobaccoData = saved.tobaccoData;
+        if (selectNotaPph && saved.pphRate) selectNotaPph.value = saved.pphRate;
         if (inputNotaFrom && saved.inputFrom !== undefined) inputNotaFrom.value = saved.inputFrom;
         if (inputNotaTo && saved.inputTo !== undefined) inputNotaTo.value = saved.inputTo;
         if (inputNotaNama && saved.inputNama) inputNotaNama.value = saved.inputNama;
