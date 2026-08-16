@@ -648,6 +648,26 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ignore completely empty row
         if (!noRaw && !gradeRaw && !kgRaw && !namaRaw && !ketRaw && !bsInfo) continue;
 
+        let glVal = String(glRaw).trim().toLowerCase();
+        let gtVal = String(gtRaw).trim().toUpperCase();
+        let namaVal = String(namaRaw).trim();
+
+        // Handle when GL or G or GT was written in the NAMA column
+        if (namaVal.toLowerCase() === 'gl' || namaVal.toLowerCase() === 'g' || /^gl\b/i.test(namaVal) || /^g\s+[a-z]/i.test(namaVal)) {
+          glVal = 'gl';
+          namaVal = namaVal.replace(/^gl\s*/i, '').replace(/^g\s+/i, '').trim();
+          if (namaVal.toLowerCase() === 'g') namaVal = '';
+        }
+        if (namaVal.toUpperCase() === 'GT' || /^gt\b/i.test(namaVal)) {
+          gtVal = 'GT';
+          namaVal = namaVal.replace(/^gt\s*/i, '').trim();
+        }
+
+        if (glVal.includes('gl') || glVal === 'g') glVal = 'gl';
+        else glVal = '';
+        if (gtVal.includes('GT') || gtVal === 'GT') gtVal = 'GT';
+        else gtVal = '';
+
         const brtVal = (brtFixRaw !== '' && !String(brtFixRaw).startsWith('=')) 
           ? Number(brtFixRaw) 
           : ((brtRaw !== '' && !String(brtRaw).startsWith('=')) ? Number(brtRaw) : calc_brt(kgRaw, brtFixRaw));
@@ -656,13 +676,13 @@ document.addEventListener('DOMContentLoaded', () => {
           : calc_harga(gradeRaw, hrgRaw);
         const netVal = (netRaw !== '' && !String(netRaw).startsWith('=')) 
           ? Number(netRaw) 
-          : calc_net(brtVal, glRaw);
+          : calc_net(brtVal, glVal);
 
         parsedData.push({
           no: noRaw !== '' ? (isNaN(Number(noRaw)) ? String(noRaw).trim() : Number(noRaw)) : (parsedData.length + 1),
-          gl: String(glRaw).trim().toLowerCase() === 'gl' ? 'gl' : '',
-          gt: String(gtRaw).trim().toUpperCase() === 'GT' ? 'GT' : '',
-          nama: String(namaRaw).trim(),
+          gl: glVal,
+          gt: gtVal,
+          nama: namaVal,
           grade: String(gradeRaw).trim(),
           harga: hrgVal || '',
           kg: String(kgRaw).trim(),
@@ -927,7 +947,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const idx = parseInt(tr.getAttribute('data-idx'), 10);
         const field = input.getAttribute('data-field');
         if (tobaccoData[idx]) {
-          tobaccoData[idx][field] = input.value;
+          let val = input.value;
+
+          // If user wrote GL / G or GT in the nama column
+          if (field === 'nama') {
+            const vTrim = val.trim();
+            if (vTrim.toLowerCase() === 'gl' || vTrim.toLowerCase() === 'g') {
+              tobaccoData[idx].gl = 'gl';
+              tobaccoData[idx].nama = '';
+              input.value = '';
+              const glInput = tr.querySelector('input[data-field="gl"]');
+              if (glInput) glInput.value = 'gl';
+            } else if (/^gl\s+/i.test(vTrim)) {
+              tobaccoData[idx].gl = 'gl';
+              tobaccoData[idx].nama = vTrim.replace(/^gl\s+/i, '').trim();
+              input.value = tobaccoData[idx].nama;
+              const glInput = tr.querySelector('input[data-field="gl"]');
+              if (glInput) glInput.value = 'gl';
+            } else if (vTrim.toUpperCase() === 'GT') {
+              tobaccoData[idx].gt = 'GT';
+              tobaccoData[idx].nama = '';
+              input.value = '';
+              const gtInput = tr.querySelector('input[data-field="gt"]');
+              if (gtInput) gtInput.value = 'GT';
+            } else {
+              tobaccoData[idx].nama = val;
+            }
+          } else {
+            tobaccoData[idx][field] = val;
+          }
+
           const r = tobaccoData[idx];
           r.brt = calc_brt(r.kg, r.brt_fix);
           r.net = calc_net(r.brt, r.gl);
@@ -1209,17 +1258,21 @@ PENTING:
           let gtVal = String(r.gt || '').trim().toUpperCase();
           let namaVal = String(r.nama || '').trim();
 
-          if (namaVal.toLowerCase() === 'gl' || /^gl\b/i.test(namaVal)) {
+          // Handle when GL / G or GT was written in the NAMA column
+          if (namaVal.toLowerCase() === 'gl' || namaVal.toLowerCase() === 'g' || /^gl\b/i.test(namaVal) || /^g\s+[a-z]/i.test(namaVal)) {
             glVal = 'gl';
-            namaVal = namaVal.replace(/^gl\s*/i, '').trim();
+            namaVal = namaVal.replace(/^gl\s*/i, '').replace(/^g\s+/i, '').trim();
+            if (namaVal.toLowerCase() === 'g') namaVal = '';
           }
           if (namaVal.toUpperCase() === 'GT' || /^gt\b/i.test(namaVal)) {
             gtVal = 'GT';
             namaVal = namaVal.replace(/^gt\s*/i, '').trim();
           }
 
-          if (glVal.includes('gl')) glVal = 'gl';
-          if (gtVal.includes('GT')) gtVal = 'GT';
+          if (glVal.includes('gl') || glVal === 'g') glVal = 'gl';
+          else glVal = '';
+          if (gtVal.includes('GT') || gtVal === 'GT') gtVal = 'GT';
+          else gtVal = '';
 
           const brtVal = calc_brt(r.kg, r.brt_fix);
           const netVal = calc_net(brtVal, glVal);
@@ -1331,7 +1384,7 @@ PENTING:
     const s = String(name).trim();
     if (!s) return false;
     if (isDateToken(s)) return false;
-    if (['gl', 'gt', 'bs'].includes(s.toLowerCase())) return false;
+    if (['gl', 'gt', 'bs', 'g'].includes(s.toLowerCase())) return false;
     if (s.toLowerCase().startsWith('bs')) return false;
     if (isLotIndexToken(s)) return false;
     if (/^[0-9()\-.\s]+$/.test(s)) return false;
