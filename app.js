@@ -1313,6 +1313,45 @@ PENTING:
   const notaPreviewNet = document.getElementById('notaPreviewNet');
   const notaPreviewRp = document.getElementById('notaPreviewRp');
 
+  // =========================================================================
+  // BS Identification & Farmer Association Helpers
+  // =========================================================================
+  function isBsRow(r) {
+    if (!r) return false;
+    if (r.bs === true) return true;
+    const ket = String(r.ket || '').trim().toLowerCase();
+    const no = String(r.no || '').trim().toLowerCase();
+    const nama = String(r.nama || '').trim().toLowerCase();
+    const gl = String(r.gl || '').trim().toLowerCase();
+
+    // 'ada bs' in KET is a marker for companion side BS, not a BS row by itself
+    if (ket === 'ada bs') return false;
+    if (no === 'bs' || no.startsWith('bs')) return true;
+    if (ket.includes('bs')) return true;
+    if (nama.startsWith('bs') || (nama.includes('bs') && !nama.includes('bahruddin') && !nama.includes('basri') && !nama.includes('subaidi'))) return true;
+    if (gl === 'bs') return true;
+    return false;
+  }
+
+  function getFarmerNameForRow(rowIndex) {
+    if (rowIndex < 0 || rowIndex >= tobaccoData.length) return '';
+    const r = tobaccoData[rowIndex];
+
+    const selfName = String(r.nama || '').trim();
+    if (selfName && !isDateToken(selfName) && !['gl', 'gt', 'bs'].includes(selfName.toLowerCase()) && !selfName.toLowerCase().startsWith('bs')) {
+      return selfName.replace(/[()0-9]/g, '').trim();
+    }
+
+    // Look upwards for the closest farmer name above this row
+    for (let j = rowIndex - 1; j >= 0; j--) {
+      const prevName = String(tobaccoData[j].nama || '').trim();
+      if (prevName && !isDateToken(prevName) && !['gl', 'gt', 'bs'].includes(prevName.toLowerCase()) && !prevName.toLowerCase().startsWith('bs')) {
+        return prevName.replace(/[()0-9]/g, '').trim();
+      }
+    }
+    return '';
+  }
+
   function getSelectedNotaRows() {
     if (tobaccoData.length === 0) return { rows: [], from: null, to: null, label: 'Kosong' };
 
@@ -1326,9 +1365,38 @@ PENTING:
       const minNo = Math.min(fromVal, toVal);
       const maxNo = Math.max(fromVal, toVal);
 
-      tobaccoData.forEach(r => {
+      const rangeIndices = [];
+      tobaccoData.forEach((r, idx) => {
         const n = parseInt(r.no, 10);
         if (!isNaN(n) && n >= minNo && n <= maxNo) {
+          rangeIndices.push(idx);
+        }
+      });
+
+      const tempRows = rangeIndices.map(i => tobaccoData[i]);
+      const rangeInfo = detectInfo(tempRows, minNo);
+      const farmerName = (rangeInfo.nama || '').replace(/[()0-9]/g, '').trim().toLowerCase();
+
+      const includedIndices = new Set();
+
+      rangeIndices.forEach(idx => {
+        const r = tobaccoData[idx];
+        includedIndices.add(idx);
+
+        if (isBsRow(r)) {
+          bsRows.push({
+            no: r.no,
+            gl: '',
+            gt: '',
+            nama: r.nama || '',
+            grade: r.grade,
+            brt: r.brt,
+            net: r.net,
+            harga: r.harga,
+            bs: true,
+            label: 'BS'
+          });
+        } else {
           mainRows.push(r);
           if (r.bs_info) {
             bsRows.push({
@@ -1347,48 +1415,105 @@ PENTING:
         }
       });
 
+      // Bundle any separate BS row whose associated farmer matches this range
+      tobaccoData.forEach((r, idx) => {
+        if (includedIndices.has(idx)) return;
+        if (!isBsRow(r)) return;
+
+        const rFarmer = getFarmerNameForRow(idx).replace(/[()0-9]/g, '').trim().toLowerCase();
+        const rSelfName = String(r.nama || '').replace(/[()0-9]/g, '').trim().toLowerCase();
+
+        const matches = (farmerName && rFarmer && (rFarmer.includes(farmerName) || farmerName.includes(rFarmer))) ||
+                        (farmerName && rSelfName && (rSelfName.includes(farmerName) || farmerName.includes(rSelfName)));
+
+        if (matches) {
+          bsRows.push({
+            no: r.no,
+            gl: '',
+            gt: '',
+            nama: r.nama || '',
+            grade: r.grade,
+            brt: r.brt,
+            net: r.net,
+            harga: r.harga,
+            bs: true,
+            label: 'BS'
+          });
+        }
+      });
+
       const label = `No. ${minNo} s/d ${maxNo}`;
       return { rows: [...mainRows, ...bsRows], from: minNo, to: maxNo, label };
     } else if (!isNaN(fromVal)) {
-      tobaccoData.forEach(r => {
+      tobaccoData.forEach((r, idx) => {
         const n = parseInt(r.no, 10);
         if (isNaN(n) || n >= fromVal) {
-          mainRows.push(r);
-          if (r.bs_info) {
+          if (isBsRow(r)) {
             bsRows.push({
               no: r.no,
               gl: '',
               gt: '',
-              nama: '',
-              grade: r.bs_info.grade,
-              brt: r.bs_info.brt,
-              net: r.bs_info.net,
-              harga: r.bs_info.harga,
+              nama: r.nama || '',
+              grade: r.grade,
+              brt: r.brt,
+              net: r.net,
+              harga: r.harga,
               bs: true,
               label: 'BS'
             });
+          } else {
+            mainRows.push(r);
+            if (r.bs_info) {
+              bsRows.push({
+                no: r.no,
+                gl: '',
+                gt: '',
+                nama: '',
+                grade: r.bs_info.grade,
+                brt: r.bs_info.brt,
+                net: r.bs_info.net,
+                harga: r.bs_info.harga,
+                bs: true,
+                label: 'BS'
+              });
+            }
           }
         }
       });
       return { rows: [...mainRows, ...bsRows], from: fromVal, to: null, label: `Mulai No. ${fromVal}` };
     } else if (!isNaN(toVal)) {
-      tobaccoData.forEach(r => {
+      tobaccoData.forEach((r, idx) => {
         const n = parseInt(r.no, 10);
         if (isNaN(n) || n <= toVal) {
-          mainRows.push(r);
-          if (r.bs_info) {
+          if (isBsRow(r)) {
             bsRows.push({
               no: r.no,
               gl: '',
               gt: '',
-              nama: '',
-              grade: r.bs_info.grade,
-              brt: r.bs_info.brt,
-              net: r.bs_info.net,
-              harga: r.bs_info.harga,
+              nama: r.nama || '',
+              grade: r.grade,
+              brt: r.brt,
+              net: r.net,
+              harga: r.harga,
               bs: true,
               label: 'BS'
             });
+          } else {
+            mainRows.push(r);
+            if (r.bs_info) {
+              bsRows.push({
+                no: r.no,
+                gl: '',
+                gt: '',
+                nama: '',
+                grade: r.bs_info.grade,
+                brt: r.bs_info.brt,
+                net: r.bs_info.net,
+                harga: r.bs_info.harga,
+                bs: true,
+                label: 'BS'
+              });
+            }
           }
         }
       });
@@ -1397,20 +1522,35 @@ PENTING:
 
     // Default: all rows
     tobaccoData.forEach(r => {
-      mainRows.push(r);
-      if (r.bs_info) {
+      if (isBsRow(r)) {
         bsRows.push({
           no: r.no,
           gl: '',
           gt: '',
-          nama: '',
-          grade: r.bs_info.grade,
-          brt: r.bs_info.brt,
-          net: r.bs_info.net,
-          harga: r.bs_info.harga,
+          nama: r.nama || '',
+          grade: r.grade,
+          brt: r.brt,
+          net: r.net,
+          harga: r.harga,
           bs: true,
           label: 'BS'
         });
+      } else {
+        mainRows.push(r);
+        if (r.bs_info) {
+          bsRows.push({
+            no: r.no,
+            gl: '',
+            gt: '',
+            nama: '',
+            grade: r.bs_info.grade,
+            brt: r.bs_info.brt,
+            net: r.bs_info.net,
+            harga: r.bs_info.harga,
+            bs: true,
+            label: 'BS'
+          });
+        }
       }
     });
 
@@ -1459,9 +1599,9 @@ PENTING:
   function detectInfo(rows, startNo) {
     const items = [];
     rows.forEach(r => {
-      if (r.bs) return; // Skip companion BS rows
+      if (r.bs || isBsRow(r)) return; // Skip all companion and standalone BS rows
       const v = String(r.nama || '').trim();
-      if (v && !['gl', 'gt'].includes(v.toLowerCase())) {
+      if (v && !['gl', 'gt'].includes(v.toLowerCase()) && !v.toLowerCase().startsWith('bs')) {
         items.push({ no: r.no, text: v, isDate: isDateToken(v) });
       }
     });
@@ -1488,8 +1628,9 @@ PENTING:
     if (!nama && startNo !== null && tobaccoData.length > 0) {
       const allBefore = tobaccoData.filter(r => parseInt(r.no, 10) < startNo);
       for (let i = allBefore.length - 1; i >= 0; i--) {
+        if (isBsRow(allBefore[i])) continue;
         const v = String(allBefore[i].nama || '').trim();
-        if (v && !isDateToken(v) && !['gl', 'gt'].includes(v.toLowerCase())) {
+        if (v && !isDateToken(v) && !['gl', 'gt'].includes(v.toLowerCase()) && !v.toLowerCase().startsWith('bs')) {
           nama = v;
           break;
         }
@@ -1516,7 +1657,7 @@ PENTING:
       totalNet += n;
       sumJumlah += (n * h);
 
-      if (!r.bs && (String(r.gt || '').toUpperCase().trim() === 'GT' || String(r.ket || '').toUpperCase().includes('GT'))) {
+      if (!r.bs && !isBsRow(r) && (String(r.gt || '').toUpperCase().trim() === 'GT' || String(r.ket || '').toUpperCase().includes('GT'))) {
         gtCount++;
       }
     });
@@ -1550,14 +1691,15 @@ PENTING:
     notaPresetsContainer.innerHTML = '';
     if (tobaccoData.length === 0) return;
 
-    // Detect clusters / batches based on filled names or contiguous ranges
+    // Detect clusters / batches based on filled farmer names
     const batches = [];
     let currentBatch = null;
 
     tobaccoData.forEach(r => {
       const num = parseInt(r.no, 10);
       const name = String(r.nama || '').trim();
-      const isHeaderName = name && !name.includes('/') && !name.includes('-') && !/^\d+$/.test(name) && !['gl', 'gt'].includes(name.toLowerCase());
+      const isBs = isBsRow(r);
+      const isHeaderName = !isBs && name && !isDateToken(name) && !['gl', 'gt'].includes(name.toLowerCase()) && !name.toLowerCase().startsWith('bs');
 
       if (isHeaderName || !currentBatch) {
         if (currentBatch && currentBatch.items.length > 0) {
@@ -1570,7 +1712,9 @@ PENTING:
           items: [r]
         };
       } else {
-        currentBatch.endNo = num || currentBatch.endNo;
+        if (!isBs && !isNaN(num)) {
+          currentBatch.endNo = num;
+        }
         currentBatch.items.push(r);
       }
     });
