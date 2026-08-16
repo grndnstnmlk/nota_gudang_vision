@@ -873,13 +873,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.round(g * 1000);
   }
 
-  function calc_net(brt, gl) {
+  function calc_net(brt, gl, ket) {
     if (brt === null || brt === undefined || String(brt).trim() === '') return '';
     const b = parseFloat(brt);
     if (isNaN(b)) return 0;
-    if (String(gl || '').trim().toLowerCase() === 'gl') {
+
+    // 1. Explicit minus deduction written in KET column (e.g. "-2", "-3", "- 2", "- 3", "-4", "-5")
+    if (ket !== null && ket !== undefined) {
+      const ketStr = String(ket).trim();
+      const minusMatch = ketStr.match(/^-\s*(\d+(\.\d+)?)$/);
+      if (minusMatch) {
+        const deduction = parseFloat(minusMatch[1]);
+        if (!isNaN(deduction)) {
+          return b - deduction;
+        }
+      }
+    }
+
+    // 2. GL Deduction (BRT - 2)
+    const glStr = String(gl || '').trim().toLowerCase();
+    if (glStr === 'gl' || glStr === 'g') {
       return b - 2;
     }
+
+    // 3. Default standard weight tier deductions
     if (b >= 60) return b - 5;
     if (b >= 50 && b < 60) return b - 4;
     if (b >= 10 && b < 50) return b - 3;
@@ -979,7 +996,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const r = tobaccoData[idx];
           r.brt = calc_brt(r.kg, r.brt_fix);
-          r.net = calc_net(r.brt, r.gl);
+          r.net = calc_net(r.brt, r.gl, r.ket);
           r.harga = calc_harga(r.grade);
 
           const tds = tr.querySelectorAll('td');
@@ -1052,7 +1069,7 @@ document.addEventListener('DOMContentLoaded', () => {
   btnRecalc.addEventListener('click', () => {
     tobaccoData.forEach(r => {
       r.brt = calc_brt(r.kg, r.brt_fix);
-      r.net = calc_net(r.brt, r.gl);
+      r.net = calc_net(r.brt, r.gl, r.ket);
       r.harga = calc_harga(r.grade);
     });
     renderGridTable();
@@ -1096,7 +1113,13 @@ ATURAN STRUKTUR KOLOM & POLA TULISAN TANGAN:
    - ATURAN MUTLAK:
      * JIKA kolom KET/BRT pada kertas TERISI angka tulisan tangan (misal: 47, 46, 44, 39, 30, 38, 46, 45, 44, 41, 39, 40, 27, 28, 48, 50, 48, 50, 37, 41, 49, 46, 47, 30, 45, 39...), maka masukkan angka tersebut ke "brt_fix".
      * JIKA kolom BRT pada kertas KOSONG, maka KOSONGKAN "brt_fix": "" (sistem akan menghitung otomatis).
-8. "ket": Catatan khusus jika ada (misal "BS", "BS - 20", "ada bs", "- 2", "- 3", dll).
+8. "ket": 
+   - Kolom catatan khusus setelah kolom BRT FIX.
+   - PENTING ATURAN POTONGAN NETTO (misal "- 2", "- 3", "-2", "-3"):
+     * Pada berkas fisik (seperti berkas KURDI baris 185-199), angka setelah BRT FIX berisi catatan potongan netto seperti "- 2", "- 3", "-2", "-3".
+     * WAJIB dimasukkan ke "ket": "- 2" atau "ket": "- 3".
+     * Sistem otomatis menghitung NETTO = BRT - 2 atau BRT - 3 sesuai catatan ini.
+   - Catatan lain seperti "BS", "BS - 20", "ada bs" tetap dimasukkan ke "ket".
 9. "BS" (BARANG SORTIR / TEMBAKAU BS):
    - Sering tertulis di baris paling bawah, di luar tabel, atau pada baris khusus (misal: "(BAHRUDIN) BS - 20  66.2  64" atau "(BAHRUDIN) BS - 20 (10/8 26)  66.2  64").
    - ATURAN MUTLAK BS:
@@ -1333,7 +1356,7 @@ PENTING:
         // Final Pass: calculate NET and HARGA for all rows
         tobaccoData = mappedRows.map(r => {
           const hrgVal = calc_harga(r.grade);
-          const netVal = calc_net(r.brt, r.gl);
+          const netVal = calc_net(r.brt, r.gl, r.ket);
           r.harga = hrgVal;
           r.net = netVal;
           return r;
