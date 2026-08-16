@@ -1519,7 +1519,7 @@ PENTING:
         ws.getRow(6).height = 17;
         ws.getRow(8).height = 20;
 
-        // Embed Tobacco Leaf Logo in cell A2:A2 (compact & proportional)
+        // Embed Tobacco Leaf Logo in cell A2 (compact, square & proportional 48x48px)
         const b64Data = (typeof window !== 'undefined' && window.TOBACCO_LOGO_BASE64) ? window.TOBACCO_LOGO_BASE64 : null;
         if (b64Data) {
           try {
@@ -1527,7 +1527,11 @@ PENTING:
               base64: b64Data,
               extension: 'png'
             });
-            ws.addImage(logoId, 'A2:A2');
+            ws.addImage(logoId, {
+              tl: { col: 0.15, row: 1.05 },
+              ext: { width: 48, height: 48 },
+              editAs: 'oneCell'
+            });
           } catch (imgErr) {
             console.warn('[Nota] ExcelJS Logo Base64 error:', imgErr);
           }
@@ -1540,7 +1544,11 @@ PENTING:
                 buffer: logoBuffer,
                 extension: 'png'
               });
-              ws.addImage(logoId, 'A2:A2');
+              ws.addImage(logoId, {
+                tl: { col: 0.15, row: 1.05 },
+                ext: { width: 48, height: 48 },
+                editAs: 'oneCell'
+              });
             }
           } catch (imgErr) {
             console.warn('[Nota] Logo image fetch skipped:', imgErr);
@@ -1878,7 +1886,7 @@ PENTING:
 
     printableNotaSheet.innerHTML = `
       <div class="nota-print-header">
-        <img src="logo.png" alt="Logo Tembakau" class="nota-print-logo" onerror="this.style.display='none'" />
+        <img src="logo.png" alt="Logo Tembakau" class="nota-print-logo" onerror="if(window.TOBACCO_LOGO_BASE64) this.src='data:image/png;base64,'+window.TOBACCO_LOGO_BASE64; else this.style.display='none';" />
         <div class="nota-print-title-wrap">
           <h2>NOTA PEMBELIAN TEMBAKAU 2026</h2>
         </div>

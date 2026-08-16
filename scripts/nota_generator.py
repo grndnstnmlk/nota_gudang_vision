@@ -199,7 +199,19 @@ def build_nota_sheet(wb,title,rows,nama,alamat,tanggal):
         ws.column_dimensions[get_column_letter(i)].width=w
     L_net=get_column_letter(c_net); L_hrg=get_column_letter(c_hrg); L_jml=get_column_letter(c_jml)
     for r,h in {2:19.5,3:22.5,7:15.75,8:16.5}.items(): ws.row_dimensions[r].height=h
-    # A2 dikosongkan pada versi terbaru (hanya style dipertahankan); judul aktif ada di B2
+    # Sisipkan Logo Tembakau di A2 jika file logo.png tersedia
+    try:
+        logo_candidates = ["logo.png", os.path.join(os.path.dirname(__file__), "logo.png"), os.path.join(os.path.dirname(__file__), "..", "logo.png")]
+        for lp in logo_candidates:
+            if os.path.exists(lp):
+                from openpyxl.drawing.image import Image as XLImage
+                img = XLImage(lp)
+                img.width = 48
+                img.height = 48
+                ws.add_image(img, "A2")
+                break
+    except Exception:
+        pass
     ws["A2"].font=_f(FONT_TITLE); ws["A2"].alignment=Alignment(horizontal="left",vertical="center")
     ws["B2"]="NOTA PEMBELIAN TEMBAKAU 2026"
     ws["B2"].font=_f(FONT_TITLE); ws["B2"].alignment=Alignment(vertical="center")
