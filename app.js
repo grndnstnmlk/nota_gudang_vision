@@ -1019,9 +1019,13 @@ document.addEventListener('DOMContentLoaded', () => {
 Tugas Anda: Ekstrak seluruh baris data pada foto kertas berkas ini ke dalam format JSON Array murni.
 
 ATURAN STRUKTUR KOLOM & POLA TULISAN TANGAN:
-1. "no": Nomor urut baris (misal: 185, 186, 187, 200, 201... atau 125, 126...).
+1. "no": Nomor urut baris (misal: 185, 186, 187, 200, 201... atau 271, 284, 285...).
 2. "nama": 
-   - Berisi nama petani/penjual (misal: "KURDI", "H. HANAN", "ZAKIR", "AMIR", "H. MAHFUD", "Bahrudin"), tanggal (misal: "11/8/26", "(11/8 26)", "10/8/26"), atau alamat (misal: "KADUR").
+   - Berisi nama petani/penjual (misal: "KURDI", "H. HANAN", "ZAKIR", "AMIR", "H. MAHFUD", "BRUDIN", "Bahruddin"), tanggal (misal: "13/8/26", "(13/8 26)", "10/8/26"), atau alamat (misal: "KADUR").
+   - PENTING ATURAN NOTA & NOMOR LOT HARIAN:
+     * Garis horizontal merah atau spasi pada berkas adalah PEMBATAS antar nota pembelian.
+     * Jika di samping atau di bawah nama petani ada angka dalam kurung atau angka urutan nota seperti "(2)", "2", "(1)", "(3)", gabungkan ke dalam nama petani tersebut (misal: "BRUDIN (2)" atau "H. MAHFUD").
+     * JANGAN memisahkan angka "(2)" atau "2" menjadi nama petani tersendiri di baris baru!
    - Jika baris tersebut hanya berupa coretan kode "G" / "GL" / "GT", kosongkan "nama": "".
 3. "gl": 
    - Isi "gl" jika ada tulisan "G", "GL", atau "gl" (baik di margin kiri luar tabel, di kolom nama, atau di kolom khusus). Jika tidak, isi "".
@@ -1039,14 +1043,14 @@ ATURAN STRUKTUR KOLOM & POLA TULISAN TANGAN:
      * JIKA kolom BRT pada kertas KOSONG / tidak ditulis (seperti pada beberapa baris), maka KOSONGKAN "brt_fix": "" (sistem akan menghitung otomatis).
 8. "ket": Catatan khusus jika ada (misal "BS", "BS - 20", "ada bs", "- 2", "- 3", dll).
 9. "BS" (BARANG SORTIR / TEMBAKAU BS):
-   - Sering tertulis di baris paling bawah, di luar tabel, atau pada baris khusus (misal: "(BAHRUDIN) BS - 20  66.2  64" atau "BS 20" atau "BS-25").
+   - Sering tertulis di baris paling bawah, di luar tabel, atau pada baris khusus (misal: "(BAHRUDIN) BS - 20  66.2  64" atau "BRUDIN (2) BS 20 - 32.5 - 31" atau "BS 25" atau "BS-25").
    - ATURAN MUTLAK BS:
      * Angka setelah tulisan BS adalah GRADE-nya! (misal "BS - 20" -> "grade": "20", "BS-25" -> "grade": "25", "BS 18" -> "grade": "18").
      * "ket": diisi "BS" atau "BS - 20".
-     * "nama": diisi nama yang tertulis di sampingnya (misal "BAHRUDIN").
-     * "kg": diisi berat desimalnya (misal "66.2").
-     * "brt_fix": diisi berat bulatnya jika ada (misal "64").
-     * "no": diisi nomor urut setelah baris sebelumnya (misal baris sebelumnya 150 -> "no": 151).
+     * "nama": diisi nama yang tertulis di sampingnya (misal "BRUDIN (2)" atau "BAHRUDIN").
+     * "kg": diisi berat desimalnya (misal "32.5").
+     * "brt_fix": diisi berat bulatnya jika ada (misal "31").
+     * "no": diisi nomor urut setelah baris sebelumnya.
 
 PENTING:
 - Pastikan angka desimal KG terbaca sangat teliti (.0, .1, .2, .3, .4, .5, .6, .7, .8, .9).
@@ -1316,6 +1320,26 @@ PENTING:
   // =========================================================================
   // BS Identification & Farmer Association Helpers
   // =========================================================================
+  function isLotIndexToken(v) {
+    if (!v) return false;
+    const s = String(v).trim();
+    return /^\(?\s*\d+\s*\)?$/.test(s) || /^-\s*\d+$/.test(s);
+  }
+
+  function isHeaderNameToken(name) {
+    if (!name) return false;
+    const s = String(name).trim();
+    if (!s) return false;
+    if (isDateToken(s)) return false;
+    if (['gl', 'gt', 'bs'].includes(s.toLowerCase())) return false;
+    if (s.toLowerCase().startsWith('bs')) return false;
+    if (isLotIndexToken(s)) return false;
+    if (/^[0-9()\-.\s]+$/.test(s)) return false;
+    const letters = s.match(/[a-zA-Z]/g);
+    if (!letters || letters.length < 2) return false;
+    return true;
+  }
+
   function isBsRow(r) {
     if (!r) return false;
     if (r.bs === true) return true;
@@ -1338,14 +1362,14 @@ PENTING:
     const r = tobaccoData[rowIndex];
 
     const selfName = String(r.nama || '').trim();
-    if (selfName && !isDateToken(selfName) && !['gl', 'gt', 'bs'].includes(selfName.toLowerCase()) && !selfName.toLowerCase().startsWith('bs')) {
+    if (selfName && isHeaderNameToken(selfName)) {
       return selfName.replace(/[()0-9]/g, '').trim();
     }
 
     // Look upwards for the closest farmer name above this row
     for (let j = rowIndex - 1; j >= 0; j--) {
       const prevName = String(tobaccoData[j].nama || '').trim();
-      if (prevName && !isDateToken(prevName) && !['gl', 'gt', 'bs'].includes(prevName.toLowerCase()) && !prevName.toLowerCase().startsWith('bs')) {
+      if (prevName && isHeaderNameToken(prevName)) {
         return prevName.replace(/[()0-9]/g, '').trim();
       }
     }
@@ -1602,7 +1626,7 @@ PENTING:
       if (r.bs || isBsRow(r)) return; // Skip all companion and standalone BS rows
       const v = String(r.nama || '').trim();
       if (v && !['gl', 'gt'].includes(v.toLowerCase()) && !v.toLowerCase().startsWith('bs')) {
-        items.push({ no: r.no, text: v, isDate: isDateToken(v) });
+        items.push({ no: r.no, text: v, isDate: isDateToken(v), isLotIndex: isLotIndexToken(v) });
       }
     });
 
@@ -1613,16 +1637,38 @@ PENTING:
 
     if (dateIdx !== -1) {
       tanggal = formatIndoDate(items[dateIdx].text);
-      for (let i = dateIdx - 1; i >= 0; i--) {
-        if (!items[i].isDate && items[i].text) { nama = items[i].text; break; }
+
+      const beforeDate = items.slice(0, dateIdx).filter(it => !it.isDate);
+      if (beforeDate.length > 0) {
+        const nameParts = [];
+        beforeDate.forEach(it => {
+          if (it.isLotIndex) {
+            const num = it.text.replace(/[()\-]/g, '').trim();
+            if (num) nameParts.push(`(${num})`);
+          } else {
+            nameParts.push(it.text);
+          }
+        });
+        nama = nameParts.join(' ').replace(/\s+/g, ' ').trim();
       }
+
       for (let i = dateIdx + 1; i < items.length; i++) {
-        if (!items[i].isDate && items[i].text) { alamat = items[i].text; break; }
+        if (!items[i].isDate && !items[i].isLotIndex && items[i].text) {
+          alamat = items[i].text;
+          break;
+        }
       }
     } else {
-      const texts = items.filter(item => !item.isDate && item.text);
-      if (texts.length > 0) nama = texts[0].text;
-      if (texts.length > 1) alamat = texts[1].text;
+      const nonDate = items.filter(it => !it.isDate);
+      if (nonDate.length > 0) {
+        if (nonDate.length > 1 && nonDate[1].isLotIndex) {
+          const num = nonDate[1].text.replace(/[()\-]/g, '').trim();
+          nama = `${nonDate[0].text} (${num})`;
+        } else {
+          nama = nonDate[0].text;
+          if (nonDate.length > 1 && !nonDate[1].isLotIndex) alamat = nonDate[1].text;
+        }
+      }
     }
 
     if (!nama && startNo !== null && tobaccoData.length > 0) {
@@ -1630,8 +1676,12 @@ PENTING:
       for (let i = allBefore.length - 1; i >= 0; i--) {
         if (isBsRow(allBefore[i])) continue;
         const v = String(allBefore[i].nama || '').trim();
-        if (v && !isDateToken(v) && !['gl', 'gt'].includes(v.toLowerCase()) && !v.toLowerCase().startsWith('bs')) {
+        if (v && isHeaderNameToken(v)) {
           nama = v;
+          if (i + 1 < allBefore.length && isLotIndexToken(allBefore[i + 1].nama)) {
+            const num = String(allBefore[i + 1].nama).replace(/[()\-]/g, '').trim();
+            if (num && !nama.includes(`(${num})`)) nama += ` (${num})`;
+          }
           break;
         }
       }
@@ -1691,7 +1741,7 @@ PENTING:
     notaPresetsContainer.innerHTML = '';
     if (tobaccoData.length === 0) return;
 
-    // Detect clusters / batches based on filled farmer names
+    // Detect clusters / batches based on filled farmer names (respecting lot indices like (2))
     const batches = [];
     let currentBatch = null;
 
@@ -1699,25 +1749,37 @@ PENTING:
       const num = parseInt(r.no, 10);
       const name = String(r.nama || '').trim();
       const isBs = isBsRow(r);
-      const isHeaderName = !isBs && name && !isDateToken(name) && !['gl', 'gt'].includes(name.toLowerCase()) && !name.toLowerCase().startsWith('bs');
+      const isHeaderName = !isBs && isHeaderNameToken(name);
 
-      if (isHeaderName || !currentBatch) {
+      if (isHeaderName) {
         if (currentBatch && currentBatch.items.length > 0) {
           batches.push(currentBatch);
         }
         currentBatch = {
-          name: isHeaderName ? name : (currentBatch ? currentBatch.name : 'Kelompok'),
-          startNo: num || 1,
-          endNo: num || 1,
+          name: name,
+          startNo: !isNaN(num) ? num : (currentBatch ? currentBatch.endNo + 1 : 1),
+          endNo: !isNaN(num) ? num : (currentBatch ? currentBatch.endNo + 1 : 1),
           items: [r]
         };
-      } else {
+      } else if (currentBatch) {
+        if (isLotIndexToken(name) && !currentBatch.name.includes('(')) {
+          const numStr = name.replace(/[()\-]/g, '').trim();
+          if (numStr) currentBatch.name += ` (${numStr})`;
+        }
         if (!isBs && !isNaN(num)) {
           currentBatch.endNo = num;
         }
         currentBatch.items.push(r);
+      } else {
+        currentBatch = {
+          name: 'Kelompok 1',
+          startNo: !isNaN(num) ? num : 1,
+          endNo: !isNaN(num) ? num : 1,
+          items: [r]
+        };
       }
     });
+
     if (currentBatch && currentBatch.items.length > 0) {
       batches.push(currentBatch);
     }
@@ -1741,7 +1803,7 @@ PENTING:
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'preset-chip';
-      const labelName = b.name.length > 12 ? b.name.substring(0, 10) + '..' : b.name;
+      const labelName = b.name.length > 14 ? b.name.substring(0, 12) + '..' : b.name;
       chip.innerHTML = `${labelName} (${b.startNo}-${b.endNo})`;
       chip.addEventListener('click', () => {
         if (inputNotaFrom) inputNotaFrom.value = b.startNo;
