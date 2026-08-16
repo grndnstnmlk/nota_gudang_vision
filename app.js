@@ -1046,6 +1046,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderNotaPresets();
     updateNotaLiveSummary(false);
+    updateAuditUI();
+    triggerAutoSave();
   }
 
   btnAddRow.addEventListener('click', () => {
@@ -2545,6 +2547,612 @@ PENTING:
   function escapeHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+
+  // =========================================================================
+  // Feature #3: AI Smart Audit & Anomaly Detection Engine (Auto-Checker)
+  // =========================================================================
+  const btnOpenAuditModal = document.getElementById('btnOpenAuditModal');
+  const auditBadgeText = document.getElementById('auditBadgeText');
+  const auditModal = document.getElementById('auditModal');
+  const btnCloseAuditModal = document.getElementById('btnCloseAuditModal');
+  const btnCloseAuditModalBtn = document.getElementById('btnCloseAuditModalBtn');
+  const auditModalBackdrop = document.getElementById('auditModalBackdrop');
+  const auditStatusTitle = document.getElementById('auditStatusTitle');
+  const auditStatusSubtitle = document.getElementById('auditStatusSubtitle');
+  const auditIconWrap = document.getElementById('auditIconWrap');
+  const auditTotalChecked = document.getElementById('auditTotalChecked');
+  const auditTotalWarnings = document.getElementById('auditTotalWarnings');
+  const auditTotalErrors = document.getElementById('auditTotalErrors');
+  const auditIssuesList = document.getElementById('auditIssuesList');
+  const btnAutoFixAnomalies = document.getElementById('btnAutoFixAnomalies');
+
+  function runSmartAudit() {
+    const warnings = [];
+    const errors = [];
+    const totalChecked = tobaccoData.length;
+
+    if (totalChecked === 0) {
+      return { warnings: [], errors: [], totalChecked: 0 };
+    }
+
+    let prevNo = null;
+
+    tobaccoData.forEach((r, idx) => {
+      const rowNum = idx + 1;
+      const noVal = parseInt(r.no, 10);
+      const kgVal = parseFloat(r.kg);
+      const brtVal = parseFloat(r.brt);
+      const netVal = parseFloat(r.net);
+      const gradeVal = parseFloat(r.grade);
+      const isBs = isBsRow(r);
+
+      // 1. Missing or Skipped Sequence Check
+      if (!isNaN(noVal)) {
+        if (prevNo !== null && noVal > prevNo + 1 && (noVal - prevNo) < 20) {
+          warnings.push({
+            type: 'warn',
+            category: 'Urutan Nomor',
+            rowIdx: idx,
+            field: 'no',
+            desc: `Nomor baris melompat dari ${prevNo} ke ${noVal} (ada nomor yang terlewat).`
+          });
+        }
+        prevNo = noVal;
+      }
+
+      // 2. Missing or Abnormal KG Check
+      if (r.kg === '' || r.kg === null || r.kg === undefined) {
+        errors.push({
+          type: 'err',
+          category: 'Bobot Kosong',
+          rowIdx: idx,
+          field: 'kg',
+          desc: `Baris No. ${r.no || rowNum}: Kolom KG kosong belum terisi timbangan.`
+        });
+      } else if (!isNaN(kgVal)) {
+        if (kgVal <= 0) {
+          errors.push({
+            type: 'err',
+            category: 'KG Tidak Valid',
+            rowIdx: idx,
+            field: 'kg',
+            desc: `Baris No. ${r.no || rowNum}: Bobot KG bernilai ${kgVal} (tidak boleh &le; 0).`
+          });
+        } else if (kgVal < 10) {
+          warnings.push({
+            type: 'warn',
+            category: 'KG Terlalu Ringan',
+            rowIdx: idx,
+            field: 'kg',
+            desc: `Baris No. ${r.no || rowNum}: Bobot KG ${kgVal} kg tidak lazim untuk tembakau bal (&lt; 10 kg).`
+          });
+        } else if (kgVal > 85) {
+          warnings.push({
+            type: 'warn',
+            category: 'KG Terlalu Berat',
+            rowIdx: idx,
+            field: 'kg',
+            desc: `Baris No. ${r.no || rowNum}: Bobot KG ${kgVal} kg sangat berat (&gt; 85 kg), mohon pastikan timbangan benar.`
+          });
+        }
+      }
+
+      // 3. Missing or Abnormal Grade Check
+      if (!r.grade && !isBs) {
+        warnings.push({
+          type: 'warn',
+          category: 'Grade Kosong',
+          rowIdx: idx,
+          field: 'grade',
+          desc: `Baris No. ${r.no || rowNum}: Kolom Grade tembakau belum diisi.`
+        });
+      } else if (!isNaN(gradeVal)) {
+        if (!isBs && (gradeVal < 15 || gradeVal > 85)) {
+          warnings.push({
+            type: 'warn',
+            category: 'Grade Tidak Lazim',
+            rowIdx: idx,
+            field: 'grade',
+            desc: `Baris No. ${r.no || rowNum}: Grade ${gradeVal} berada di luar rentang grade tembakau standar (15-85).`
+          });
+        }
+      }
+
+      // 4. Netto Calculation Discrepancies
+      if (!isNaN(netVal) && !isNaN(brtVal)) {
+        if (netVal > brtVal) {
+          errors.push({
+            type: 'err',
+            category: 'Netto Salah',
+            rowIdx: idx,
+            field: 'net',
+            desc: `Baris No. ${r.no || rowNum}: Netto (${netVal}) lebih besar dari BRT (${brtVal}), tara tidak boleh negatif.`
+          });
+        } else if (brtVal > 0 && netVal <= 0) {
+          errors.push({
+            type: 'err',
+            category: 'Netto Nol',
+            rowIdx: idx,
+            field: 'net',
+            desc: `Baris No. ${r.no || rowNum}: Netto bernilai 0 padahal BRT ${brtVal}.`
+          });
+        }
+      }
+
+      // 5. Consecutive Identical Decimal Weights (3 in a row)
+      if (idx >= 2) {
+        const kg1 = tobaccoData[idx - 2].kg;
+        const kg2 = tobaccoData[idx - 1].kg;
+        const kg3 = r.kg;
+        if (kg1 && kg1 === kg2 && kg2 === kg3 && !isBs) {
+          warnings.push({
+            type: 'warn',
+            category: 'Duplikasi Bobot',
+            rowIdx: idx,
+            field: 'kg',
+            desc: `Baris No. ${tobaccoData[idx - 2].no} s/d ${r.no}: Tiga baris berturut-turut memiliki KG persis sama (${kg3} kg). Pastikan bukan pengulangan OCR.`
+          });
+        }
+      }
+    });
+
+    return { warnings, errors, totalChecked };
+  }
+
+  function updateAuditUI() {
+    if (!btnOpenAuditModal || !auditBadgeText) return;
+
+    const { warnings, errors, totalChecked } = runSmartAudit();
+    const totalIssues = warnings.length + errors.length;
+
+    // Reset badge classes
+    btnOpenAuditModal.classList.remove('clean', 'warning', 'error');
+
+    if (totalChecked === 0) {
+      btnOpenAuditModal.classList.add('clean');
+      auditBadgeText.textContent = 'Audit: Siap';
+      btnOpenAuditModal.innerHTML = `<i data-lucide="shield"></i> <span id="auditBadgeText">Audit: Siap</span>`;
+    } else if (errors.length > 0) {
+      btnOpenAuditModal.classList.add('error');
+      btnOpenAuditModal.innerHTML = `<i data-lucide="shield-alert"></i> <span id="auditBadgeText">${errors.length} Masalah Kritis</span>`;
+    } else if (warnings.length > 0) {
+      btnOpenAuditModal.classList.add('warning');
+      btnOpenAuditModal.innerHTML = `<i data-lucide="shield-alert"></i> <span id="auditBadgeText">${warnings.length} Peringatan</span>`;
+    } else {
+      btnOpenAuditModal.classList.add('clean');
+      btnOpenAuditModal.innerHTML = `<i data-lucide="shield-check"></i> <span id="auditBadgeText">Data Bersih (0 Anomali)</span>`;
+    }
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function renderAuditModal() {
+    if (!auditModal) return;
+
+    const { warnings, errors, totalChecked } = runSmartAudit();
+    const totalIssues = warnings.length + errors.length;
+
+    if (auditTotalChecked) auditTotalChecked.textContent = totalChecked;
+    if (auditTotalWarnings) auditTotalWarnings.textContent = warnings.length;
+    if (auditTotalErrors) auditTotalErrors.textContent = errors.length;
+
+    if (auditIconWrap && auditStatusTitle && auditStatusSubtitle) {
+      auditIconWrap.className = 'audit-icon-wrap';
+      if (errors.length > 0) {
+        auditIconWrap.classList.add('error');
+        auditIconWrap.innerHTML = '<i data-lucide="shield-alert"></i>';
+        auditStatusTitle.textContent = `${errors.length} Masalah Kritis Ditemukan`;
+        auditStatusSubtitle.textContent = 'Perlu perbaikan segera sebelum nota dicetak / diekspor';
+      } else if (warnings.length > 0) {
+        auditIconWrap.classList.add('warning');
+        auditIconWrap.innerHTML = '<i data-lucide="alert-triangle"></i>';
+        auditStatusTitle.textContent = `${warnings.length} Peringatan Terdeteksi`;
+        auditStatusSubtitle.textContent = 'Data dapat diproses, namun disarankan untuk meninjau baris terkait';
+      } else {
+        auditIconWrap.classList.add('clean');
+        auditIconWrap.innerHTML = '<i data-lucide="shield-check"></i>';
+        auditStatusTitle.textContent = 'Seluruh Data Valid & Akurat';
+        auditStatusSubtitle.textContent = 'Semua baris memenuhi aturan sortir dan formula tembakau';
+      }
+    }
+
+    if (auditIssuesList) {
+      if (totalIssues === 0) {
+        auditIssuesList.innerHTML = `
+          <div style="text-align: center; padding: 24px 16px; color: var(--text-secondary);">
+            <i data-lucide="check-circle-2" style="width: 36px; height: 36px; color: #10b981; margin-bottom: 8px;"></i>
+            <p><strong>Tidak ada anomali atau kejanggalan data.</strong></p>
+            <p style="font-size: 12px; margin-top: 4px;">Urutan nomor, bobot KG, grade, dan potongan netto 100% konsisten.</p>
+          </div>
+        `;
+      } else {
+        let html = '';
+        const allIssues = [...errors, ...warnings];
+        allIssues.forEach((issue) => {
+          html += `
+            <div class="audit-issue-item ${issue.type}">
+              <div class="audit-issue-main">
+                <span class="audit-issue-badge ${issue.type}">${issue.category}</span>
+                <span class="audit-issue-desc">${issue.desc}</span>
+              </div>
+              <button type="button" class="btn-audit-jump" data-row-idx="${issue.rowIdx}" data-field="${issue.field || ''}">
+                <i data-lucide="arrow-right-circle" style="width: 13px; height: 13px;"></i> Sorot Baris
+              </button>
+            </div>
+          `;
+        });
+        auditIssuesList.innerHTML = html;
+
+        // Jump button event listeners
+        auditIssuesList.querySelectorAll('.btn-audit-jump').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const rowIdx = parseInt(btn.dataset.rowIdx, 10);
+            const field = btn.dataset.field;
+            auditModal.classList.remove('active');
+
+            setTimeout(() => {
+              const tr = tableBody.querySelector(`tr[data-idx="${rowIdx}"]`);
+              if (tr) {
+                tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                tr.classList.remove('jumped-audit-row');
+                void tr.offsetWidth; // Trigger reflow for animation restart
+                tr.classList.add('jumped-audit-row');
+
+                if (field) {
+                  const input = tr.querySelector(`input[data-field="${field}"]`);
+                  if (input) input.focus();
+                }
+              }
+            }, 200);
+          });
+        });
+      }
+    }
+
+    if (window.lucide) lucide.createIcons();
+    auditModal.classList.add('active');
+  }
+
+  if (btnOpenAuditModal) {
+    btnOpenAuditModal.addEventListener('click', () => {
+      renderAuditModal();
+    });
+  }
+
+  [btnCloseAuditModal, btnCloseAuditModalBtn, auditModalBackdrop].forEach(el => {
+    if (el) el.addEventListener('click', () => auditModal.classList.remove('active'));
+  });
+
+  if (btnAutoFixAnomalies) {
+    btnAutoFixAnomalies.addEventListener('click', () => {
+      tobaccoData.forEach(r => {
+        r.brt = calc_brt(r.kg, r.brt_fix);
+        r.net = calc_net(r.brt, r.gl, r.ket);
+        r.harga = calc_harga(r.grade);
+      });
+      renderGridTable();
+      showToast('Rumus BRT, NET & HARGA berhasil diperbaiki otomatis!', 'success');
+      renderAuditModal();
+    });
+  }
+
+  // =========================================================================
+  // Feature #4: Auto-Save & Session History Engine (Crash Protection)
+  // =========================================================================
+  const LOCAL_STORAGE_SESSION_KEY = 'vision_nota_active_session_v2';
+  const LOCAL_STORAGE_HISTORY_KEY = 'vision_nota_session_history_v2';
+
+  const autosaveIndicator = document.getElementById('autosaveIndicator');
+  const autosaveLabel = document.getElementById('autosaveLabel');
+  const btnOpenHistoryModal = document.getElementById('btnOpenHistoryModal');
+  const btnNewSession = document.getElementById('btnNewSession');
+  const historyModal = document.getElementById('historyModal');
+  const btnCloseHistoryModal = document.getElementById('btnCloseHistoryModal');
+  const btnCloseHistoryModalBtn = document.getElementById('btnCloseHistoryModalBtn');
+  const historyModalBackdrop = document.getElementById('historyModalBackdrop');
+  const btnSaveSnapshotManual = document.getElementById('btnSaveSnapshotManual');
+  const btnExportSessionJson = document.getElementById('btnExportSessionJson');
+  const inputImportSessionJson = document.getElementById('inputImportSessionJson');
+  const historyItemsContainer = document.getElementById('historyItemsContainer');
+  const btnClearAllHistory = document.getElementById('btnClearAllHistory');
+
+  let autoSaveTimeout = null;
+
+  function triggerAutoSave() {
+    if (autosaveIndicator) {
+      autosaveIndicator.classList.add('saving');
+      if (autosaveLabel) autosaveLabel.textContent = 'Menyimpan...';
+    }
+
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(() => {
+      saveActiveSession();
+    }, 600);
+  }
+
+  function saveActiveSession() {
+    try {
+      if (tobaccoData.length === 0) {
+        localStorage.removeItem(LOCAL_STORAGE_SESSION_KEY);
+        if (autosaveIndicator) {
+          autosaveIndicator.classList.remove('saving');
+          if (autosaveLabel) autosaveLabel.textContent = 'Auto-Save Aktif';
+        }
+        return;
+      }
+
+      const sessionData = {
+        updatedAt: new Date().toISOString(),
+        tobaccoData: tobaccoData,
+        inputFrom: inputNotaFrom ? inputNotaFrom.value : '',
+        inputTo: inputNotaTo ? inputNotaTo.value : '',
+        inputNama: inputNotaNama ? inputNotaNama.value : '',
+        inputTanggal: inputNotaTanggal ? inputNotaTanggal.value : '',
+        inputAlamat: inputNotaAlamat ? inputNotaAlamat.value : ''
+      };
+
+      localStorage.setItem(LOCAL_STORAGE_SESSION_KEY, JSON.stringify(sessionData));
+
+      if (autosaveIndicator) {
+        autosaveIndicator.classList.remove('saving');
+        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        if (autosaveLabel) autosaveLabel.textContent = `Tersimpan (${timeStr})`;
+      }
+    } catch (e) {
+      console.warn('Auto-save storage quota error:', e);
+    }
+  }
+
+  function restoreActiveSession() {
+    try {
+      const savedStr = localStorage.getItem(LOCAL_STORAGE_SESSION_KEY);
+      if (!savedStr) return false;
+
+      const saved = JSON.parse(savedStr);
+      if (saved && Array.isArray(saved.tobaccoData) && saved.tobaccoData.length > 0) {
+        tobaccoData = saved.tobaccoData;
+        if (inputNotaFrom && saved.inputFrom !== undefined) inputNotaFrom.value = saved.inputFrom;
+        if (inputNotaTo && saved.inputTo !== undefined) inputNotaTo.value = saved.inputTo;
+        if (inputNotaNama && saved.inputNama) inputNotaNama.value = saved.inputNama;
+        if (inputNotaTanggal && saved.inputTanggal) inputNotaTanggal.value = saved.inputTanggal;
+        if (inputNotaAlamat && saved.inputAlamat) inputNotaAlamat.value = saved.inputAlamat;
+
+        renderGridTable();
+        showToast(`Sesi sebelumnya (${tobaccoData.length} baris) berhasil dipulihkan otomatis!`, 'info', 4000);
+        return true;
+      }
+    } catch (e) {
+      console.warn('Gagal memulihkan sesi:', e);
+    }
+    return false;
+  }
+
+  function getHistorySessions() {
+    try {
+      const list = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
+      return list ? JSON.parse(list) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveHistorySnapshot(customName = null) {
+    if (tobaccoData.length === 0) {
+      showToast('Tidak ada data untuk disimpan ke riwayat', 'warning');
+      return;
+    }
+
+    const sessions = getHistorySessions();
+    const uniqueNames = [...new Set(tobaccoData.map(r => r.nama).filter(n => n && isHeaderNameToken(n)))];
+    const farmerTitle = uniqueNames.slice(0, 3).join(', ') + (uniqueNames.length > 3 ? ' dkk.' : '');
+
+    let sumRp = 0;
+    let sumKg = 0;
+    tobaccoData.forEach(r => {
+      const n = parseFloat(r.net) || 0;
+      const h = parseFloat(r.harga) || 0;
+      const k = parseFloat(r.kg) || 0;
+      sumRp += (n * h);
+      sumKg += k;
+    });
+
+    const newSnapshot = {
+      id: 'session_' + Date.now(),
+      title: customName || (farmerTitle ? `Berkas: ${farmerTitle}` : `Sesi Sortir ${new Date().toLocaleDateString('id-ID')}`),
+      savedAt: new Date().toISOString(),
+      balCount: tobaccoData.length,
+      totalKg: sumKg.toFixed(1),
+      totalRp: Math.round(sumRp),
+      data: JSON.parse(JSON.stringify(tobaccoData))
+    };
+
+    sessions.unshift(newSnapshot);
+    // Keep max 20 historical sessions
+    if (sessions.length > 20) sessions.pop();
+
+    localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(sessions));
+    showToast(`Sesi "${newSnapshot.title}" berhasil disimpan ke riwayat!`, 'success', 3500);
+    renderHistoryModal();
+  }
+
+  function renderHistoryModal() {
+    if (!historyItemsContainer) return;
+    const sessions = getHistorySessions();
+
+    if (sessions.length === 0) {
+      historyItemsContainer.innerHTML = `
+        <div style="text-align: center; padding: 24px; color: var(--text-secondary);">
+          <i data-lucide="archive" style="width: 32px; height: 32px; color: var(--text-muted); margin-bottom: 8px;"></i>
+          <p>Belum ada arsip riwayat sesi tersimpan.</p>
+          <p style="font-size: 12px; margin-top: 4px;">Klik "Simpan Sesi Saat Ini" untuk membuat backup berkas.</p>
+        </div>
+      `;
+    } else {
+      let html = '';
+      sessions.forEach(sess => {
+        const dateStr = new Date(sess.savedAt).toLocaleString('id-ID', {
+          day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        html += `
+          <div class="history-session-card" data-sess-id="${sess.id}">
+            <div class="session-info">
+              <div class="session-title">
+                <i data-lucide="file-spreadsheet" style="width: 16px; height: 16px; color: var(--accent-primary);"></i>
+                <span>${escapeHtml(sess.title)}</span>
+              </div>
+              <div class="session-meta">
+                <span><i data-lucide="calendar" style="width: 12px; height: 12px;"></i> ${dateStr}</span>
+                <span><strong>${sess.balCount}</strong> Bal (${sess.totalKg || 0} kg)</span>
+                <span style="color: #10b981;">Rp ${(sess.totalRp || 0).toLocaleString('id-ID')}</span>
+              </div>
+            </div>
+            <div class="session-actions">
+              <button type="button" class="btn-primary btn-sm btn-load-sess" data-sess-id="${sess.id}">
+                <i data-lucide="folder-open"></i> Buka
+              </button>
+              <button type="button" class="btn-secondary btn-sm btn-del-sess" data-sess-id="${sess.id}" title="Hapus sesi ini">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+      historyItemsContainer.innerHTML = html;
+
+      // Event listeners for session card buttons
+      historyItemsContainer.querySelectorAll('.btn-load-sess').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sessId = btn.dataset.sessId;
+          const targetSess = sessions.find(s => s.id === sessId);
+          if (targetSess && targetSess.data) {
+            tobaccoData = JSON.parse(JSON.stringify(targetSess.data));
+            renderGridTable();
+            historyModal.classList.remove('active');
+            showToast(`Sesi "${targetSess.title}" berhasil dimuat!`, 'success', 3500);
+          }
+        });
+      });
+
+      historyItemsContainer.querySelectorAll('.btn-del-sess').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sessId = btn.dataset.sessId;
+          const updatedSessions = sessions.filter(s => s.id !== sessId);
+          localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(updatedSessions));
+          renderHistoryModal();
+          showToast('Sesi riwayat dihapus', 'info', 2000);
+        });
+      });
+    }
+
+    if (window.lucide) lucide.createIcons();
+    historyModal.classList.add('active');
+  }
+
+  if (btnOpenHistoryModal) {
+    btnOpenHistoryModal.addEventListener('click', () => {
+      renderHistoryModal();
+    });
+  }
+
+  [btnCloseHistoryModal, btnCloseHistoryModalBtn, historyModalBackdrop].forEach(el => {
+    if (el) el.addEventListener('click', () => historyModal.classList.remove('active'));
+  });
+
+  if (btnSaveSnapshotManual) {
+    btnSaveSnapshotManual.addEventListener('click', () => {
+      const customTitle = prompt('Beri nama arsip sesi ini:', `Sesi ${new Date().toLocaleDateString('id-ID')}`);
+      if (customTitle !== null) {
+        saveHistorySnapshot(customTitle.trim() || null);
+      }
+    });
+  }
+
+  if (btnExportSessionJson) {
+    btnExportSessionJson.addEventListener('click', () => {
+      if (tobaccoData.length === 0) {
+        showToast('Tidak ada data untuk diekspor', 'warning');
+        return;
+      }
+      const exportPayload = {
+        app: 'Vision AI Generator Nota Tembakau',
+        exportedAt: new Date().toISOString(),
+        rows: tobaccoData
+      };
+      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+      const filename = `Backup_Sortir_${new Date().toISOString().slice(0, 10)}.json`;
+      if (typeof saveAs !== 'undefined') {
+        saveAs(blob, filename);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      showToast(`Backup JSON berhasil diunduh: ${filename}`, 'success');
+    });
+  }
+
+  if (inputImportSessionJson) {
+    inputImportSessionJson.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          const rows = parsed.rows || (Array.isArray(parsed) ? parsed : null);
+          if (Array.isArray(rows) && rows.length > 0) {
+            tobaccoData = rows;
+            renderGridTable();
+            historyModal.classList.remove('active');
+            showToast(`Berhasil mengimpor ${rows.length} baris dari backup JSON!`, 'success', 4000);
+          } else {
+            showToast('Format file JSON tidak valid', 'error');
+          }
+        } catch (err) {
+          showToast('Gagal membaca file JSON: ' + err.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+      inputImportSessionJson.value = '';
+    });
+  }
+
+  if (btnClearAllHistory) {
+    btnClearAllHistory.addEventListener('click', () => {
+      if (confirm('Apakah Anda yakin ingin menghapus SELURUH riwayat sesi tersimpan?')) {
+        localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
+        renderHistoryModal();
+        showToast('Seluruh riwayat sesi telah dibersihkan', 'info');
+      }
+    });
+  }
+
+  if (btnNewSession) {
+    btnNewSession.addEventListener('click', () => {
+      if (tobaccoData.length > 0) {
+        if (confirm('Mulai sesi baru? Data yang belum disimpan ke riwayat akan dikosongkan.')) {
+          tobaccoData = [];
+          if (inputNotaFrom) inputNotaFrom.value = '';
+          if (inputNotaTo) inputNotaTo.value = '';
+          if (inputNotaNama) inputNotaNama.value = '';
+          if (inputNotaTanggal) inputNotaTanggal.value = '';
+          if (inputNotaAlamat) inputNotaAlamat.value = '';
+          localStorage.removeItem(LOCAL_STORAGE_SESSION_KEY);
+          renderGridTable();
+          showToast('Sesi baru dimulai. Tabel siap digunakan.', 'info');
+        }
+      } else {
+        showToast('Tabel sudah dalam keadaan kosong.', 'info');
+      }
+    });
+  }
+
+  // Restore previous session on application launch if available
+  restoreActiveSession();
 
 });
 
