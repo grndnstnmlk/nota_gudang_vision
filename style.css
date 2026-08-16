@@ -550,28 +550,284 @@ body.light-theme .moon-icon { display: block; }
   box-shadow: 0 0 35px rgba(236, 72, 153, 0.4);
 }
 
-/* Image Preview */
+/* Image Preview & Interactive Viewer */
 .preview-container {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
 }
 
-.preview-image-wrapper {
-  max-height: 320px;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
+/* Multi-Photo Gallery Strip */
+.photo-gallery-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scrollbar-width: thin;
+}
+
+.photo-gallery-strip::-webkit-scrollbar {
+  height: 4px;
+}
+
+.photo-gallery-strip::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.gallery-thumb {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border-color);
   background: #000;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.gallery-thumb:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+.gallery-thumb.active {
+  border-color: var(--accent-secondary);
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+}
+
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-thumb-badge {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.gallery-thumb-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(239, 68, 68, 0.85);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.gallery-thumb:hover .gallery-thumb-delete {
+  opacity: 1;
+}
+
+.gallery-add-btn {
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-sm);
+  border: 2px dashed var(--border-color);
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.gallery-add-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+/* Image Viewer Toolbar */
+.image-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 2px;
+}
+
+.btn-filter-mode {
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-filter-mode:hover {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.btn-filter-mode.active {
+  background: var(--accent-gradient);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 1px 6px rgba(99, 102, 241, 0.3);
+}
+
+.btn-tool-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-tool-icon:hover {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* Image Viewport */
+.preview-image-wrapper {
+  position: relative;
+  height: 380px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: #090d16;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+}
+
+.preview-image-wrapper:active {
+  cursor: grabbing;
 }
 
 .preview-image-wrapper img {
   max-width: 100%;
-  max-height: 320px;
+  max-height: 100%;
   object-fit: contain;
+  transform-origin: center center;
+  transition: filter 0.25s ease, transform 0.05s ease-out;
+}
+
+.image-zoom-hint {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.preview-image-wrapper:hover .image-zoom-hint {
+  opacity: 1;
+}
+
+/* Contrast & Preprocessing Image Filters */
+.filter-high-contrast {
+  filter: grayscale(100%) contrast(230%) brightness(105%) !important;
+}
+
+.filter-brighten {
+  filter: brightness(140%) contrast(160%) !important;
+}
+
+.filter-invert {
+  filter: invert(100%) hue-rotate(180deg) contrast(180%) !important;
+}
+
+/* Side-by-Side Review Mode */
+.workspace-grid.side-by-side-mode {
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+}
+
+.workspace-grid.side-by-side-mode .upload-card {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.workspace-grid.side-by-side-mode .preview-image-wrapper {
+  height: 480px;
+}
+
+#btnToggleSideBySide.active {
+  background: var(--accent-gradient);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
+/* Highlight row being reviewed */
+tr.active-review-row {
+  background: rgba(99, 102, 241, 0.18) !important;
+  outline: 2px solid var(--accent-primary) !important;
 }
 
 /* Progress Box */

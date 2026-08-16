@@ -262,11 +262,158 @@ document.addEventListener('DOMContentLoaded', () => {
   updateApiKeyIndicator();
 
   // =========================================================================
+  // =========================================================================
+  // Multi-Photo & Interactive Viewer State
+  // =========================================================================
+  let uploadedImages = []; // Array of { id, name, src, base64 }
+  let activeImageIndex = 0;
+  let zoomScale = 1.0;
+  let rotateAngle = 0;
+  let panX = 0;
+  let panY = 0;
+  let isPanning = false;
+  let startX = 0;
+  let startY = 0;
+
+  const photoGalleryStrip = document.getElementById('photoGalleryStrip');
+  const previewImageWrapper = document.getElementById('previewImageWrapper');
+  const btnAiScanText = document.getElementById('btnAiScanText');
+  const btnZoomIn = document.getElementById('btnZoomIn');
+  const btnZoomOut = document.getElementById('btnZoomOut');
+  const btnZoomReset = document.getElementById('btnZoomReset');
+  const btnRotateImg = document.getElementById('btnRotateImg');
+  const btnToggleSideBySide = document.getElementById('btnToggleSideBySide');
+  const workspaceGrid = document.querySelector('.workspace-grid');
+
+  function updateViewerTransform() {
+    if (!previewImage) return;
+    previewImage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale}) rotate(${rotateAngle}deg)`;
+  }
+
+  function resetViewerTransform() {
+    zoomScale = 1.0;
+    rotateAngle = 0;
+    panX = 0;
+    panY = 0;
+    updateViewerTransform();
+  }
+
+  function setActiveImage(index) {
+    if (index < 0 || index >= uploadedImages.length) return;
+    activeImageIndex = index;
+    currentImageSrc = uploadedImages[index].src;
+    previewImage.src = currentImageSrc;
+    resetViewerTransform();
+    renderGalleryStrip();
+    updateAiScanButtonText();
+  }
+
+  function removeImageByIndex(index) {
+    if (index < 0 || index >= uploadedImages.length) return;
+    uploadedImages.splice(index, 1);
+    if (uploadedImages.length === 0) {
+      currentImageSrc = null;
+      previewImage.src = '';
+      dropzone.style.display = 'block';
+      previewContainer.style.display = 'none';
+      previewActions.style.display = 'none';
+      progressBox.style.display = 'none';
+    } else {
+      if (activeImageIndex >= uploadedImages.length) {
+        activeImageIndex = uploadedImages.length - 1;
+      }
+      setActiveImage(activeImageIndex);
+    }
+    renderGalleryStrip();
+  }
+
+  function updateAiScanButtonText() {
+    if (!btnAiScanText) return;
+    if (uploadedImages.length > 1) {
+      btnAiScanText.textContent = `Ekstrak SEMUA Foto (${uploadedImages.length} Halaman Berkas)`;
+    } else {
+      btnAiScanText.textContent = `Ekstrak dengan Vision AI (100% Akurat)`;
+    }
+  }
+
+  function renderGalleryStrip() {
+    if (!photoGalleryStrip) return;
+    photoGalleryStrip.innerHTML = '';
+    if (uploadedImages.length <= 1) {
+      photoGalleryStrip.style.display = 'none';
+      return;
+    }
+    photoGalleryStrip.style.display = 'flex';
+
+    uploadedImages.forEach((imgObj, idx) => {
+      const thumb = document.createElement('div');
+      thumb.className = `gallery-thumb ${idx === activeImageIndex ? 'active' : ''}`;
+      thumb.title = `${imgObj.name} (Klik untuk melihat)`;
+      thumb.innerHTML = `
+        <img src="${imgObj.src}" alt="${imgObj.name}" />
+        <span class="gallery-thumb-badge">${idx + 1}</span>
+        <button type="button" class="gallery-thumb-delete" title="Hapus foto ini">&times;</button>
+      `;
+
+      thumb.addEventListener('click', (e) => {
+        if (e.target.classList.contains('gallery-thumb-delete')) {
+          e.stopPropagation();
+          removeImageByIndex(idx);
+          return;
+        }
+        setActiveImage(idx);
+      });
+
+      photoGalleryStrip.appendChild(thumb);
+    });
+
+    const addBtn = document.createElement('div');
+    addBtn.className = 'gallery-add-btn';
+    addBtn.title = 'Tambah foto berkas berikutnya';
+    addBtn.innerHTML = `<i data-lucide="plus"></i><span>+ Foto</span>`;
+    addBtn.addEventListener('click', () => fileInput.click());
+    photoGalleryStrip.appendChild(addBtn);
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function addUploadedImages(files) {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    let loadedCount = 0;
+
+    fileArray.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const src = e.target.result;
+        const base64 = src.split(',')[1];
+        uploadedImages.push({
+          id: 'img_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          name: file.name || `Foto ${uploadedImages.length + 1}`,
+          src,
+          base64
+        });
+        loadedCount++;
+
+        if (loadedCount === fileArray.length) {
+          dropzone.style.display = 'none';
+          previewContainer.style.display = 'flex';
+          previewActions.style.display = 'flex';
+          setActiveImage(uploadedImages.length - loadedCount);
+          renderGalleryStrip();
+          showToast(`${fileArray.length} foto berkas berhasil dimuat!`, 'success');
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // =========================================================================
   // Image Upload & Source Handling
   // =========================================================================
   fileInput.addEventListener('change', (e) => {
-    if (e.target.files && e.target.files[0]) {
-      loadImageFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      addUploadedImages(e.target.files);
     }
   });
 
@@ -285,22 +432,87 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   dropzone.addEventListener('drop', (e) => {
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      loadImageFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      addUploadedImages(e.dataTransfer.files);
     }
   });
 
-  function loadImageFile(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      currentImageSrc = e.target.result;
-      previewImage.src = currentImageSrc;
-      dropzone.style.display = 'none';
-      previewContainer.style.display = 'flex';
-      previewActions.style.display = 'flex';
-      showToast('Foto berkas berhasil dimuat!', 'success');
-    };
-    reader.readAsDataURL(file);
+  // Preprocessing Image Filters
+  document.querySelectorAll('.btn-filter-mode').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.btn-filter-mode').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.dataset.filter;
+      previewImage.classList.remove('filter-high-contrast', 'filter-brighten', 'filter-invert');
+      if (filter === 'high-contrast') previewImage.classList.add('filter-high-contrast');
+      if (filter === 'brighten') previewImage.classList.add('filter-brighten');
+      if (filter === 'invert') previewImage.classList.add('filter-invert');
+    });
+  });
+
+  // Interactive Zoom & Pan Controls
+  if (btnZoomIn) {
+    btnZoomIn.addEventListener('click', () => {
+      zoomScale = Math.min(4.0, zoomScale + 0.25);
+      updateViewerTransform();
+    });
+  }
+
+  if (btnZoomOut) {
+    btnZoomOut.addEventListener('click', () => {
+      zoomScale = Math.max(0.5, zoomScale - 0.25);
+      updateViewerTransform();
+    });
+  }
+
+  if (btnZoomReset) {
+    btnZoomReset.addEventListener('click', resetViewerTransform);
+  }
+
+  if (btnRotateImg) {
+    btnRotateImg.addEventListener('click', () => {
+      rotateAngle = (rotateAngle + 90) % 360;
+      updateViewerTransform();
+    });
+  }
+
+  if (previewImageWrapper) {
+    previewImageWrapper.addEventListener('mousedown', (e) => {
+      isPanning = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      updateViewerTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isPanning = false;
+    });
+
+    previewImageWrapper.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        zoomScale = Math.min(4.0, zoomScale + 0.15);
+      } else {
+        zoomScale = Math.max(0.5, zoomScale - 0.15);
+      }
+      updateViewerTransform();
+    });
+  }
+
+  // Side-by-Side Review Mode Toggle
+  if (btnToggleSideBySide && workspaceGrid) {
+    btnToggleSideBySide.addEventListener('click', () => {
+      const isActive = workspaceGrid.classList.toggle('side-by-side-mode');
+      btnToggleSideBySide.classList.toggle('active', isActive);
+      showToast(isActive ? 'Mode Berdampingan Aktif: Foto & Tabel Berdampingan' : 'Mode Normal Aktif', 'info', 2500);
+      if (window.lucide) lucide.createIcons();
+    });
   }
 
   // =========================================================================
@@ -546,6 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   btnResetPhoto.addEventListener('click', () => {
+    uploadedImages = [];
     currentImageSrc = null;
     fileInput.value = '';
     previewImage.src = '';
@@ -553,6 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
     previewContainer.style.display = 'none';
     previewActions.style.display = 'none';
     progressBox.style.display = 'none';
+    renderGalleryStrip();
   });
 
   // =========================================================================
@@ -593,12 +807,21 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.drawImage(cameraVideo, 0, 0);
     closeCamera();
 
-    currentImageSrc = canvas.toDataURL('image/jpeg', 0.95);
-    previewImage.src = currentImageSrc;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    const base64 = dataUrl.split(',')[1];
+    uploadedImages.push({
+      id: 'img_' + Date.now(),
+      name: `Kamera (${uploadedImages.length + 1})`,
+      src: dataUrl,
+      base64
+    });
+
     dropzone.style.display = 'none';
     previewContainer.style.display = 'flex';
     previewActions.style.display = 'flex';
-    showToast('Foto berhasil dijepret!', 'success');
+    setActiveImage(uploadedImages.length - 1);
+    renderGalleryStrip();
+    showToast('Foto berhasil dijepret & ditambahkan ke antrean!', 'success');
   });
 
   // =========================================================================
@@ -688,6 +911,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tableBody.innerHTML = html;
     if (window.lucide) lucide.createIcons();
+
+    // Active review row highlight
+    tableBody.querySelectorAll('tr[data-idx]').forEach(tr => {
+      tr.addEventListener('click', () => {
+        tableBody.querySelectorAll('tr').forEach(r => r.classList.remove('active-review-row'));
+        tr.classList.add('active-review-row');
+      });
+    });
 
     // Inline input events
     tableBody.querySelectorAll('input.grid-input').forEach(input => {
@@ -780,38 +1011,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // =========================================================================
-  // Vision AI Execution (Gemini Vision API)
   // =========================================================================
-  btnRunVisionAI.addEventListener('click', async () => {
-    if (!currentImageSrc) {
-      showToast('Pilih atau foto berkas kertas terlebih dahulu', 'error');
-      return;
-    }
-
-    const apiKey = getSavedApiKey();
-    if (!apiKey) {
-      btnOpenApiKeyModal.click();
-      showToast('Masukkan Google Gemini API Key Anda (100% Gratis)', 'info', 5000);
-      return;
-    }
-
-    if (isScanning) return;
-    isScanning = true;
-    btnRunVisionAI.disabled = true;
-    progressBox.style.display = 'flex';
-    progressBarFill.style.width = '20%';
-    progressStatus.textContent = 'Menghubungi Google Gemini Vision AI...';
-    progressSub.textContent = 'Mempersiapkan gambar berkas sortir tembakau';
-
-    try {
-      const base64Data = currentImageSrc.split(',')[1];
-      const model = getSavedModel();
-
-      progressBarFill.style.width = '50%';
-      progressStatus.textContent = 'Vision AI membaca tulisan tangan & angka...';
-      progressSub.textContent = 'Mengekstrak kolom NO, GL, GT, NAMA, GRADE, KG, dan BRT';
-
-      const prompt = `Anda adalah sistem Vision AI OCR cerdas khusus membaca Buku Sortir Tembakau (catatan tulisan tangan pulpen & formulir gudang tembakau).
+  // Vision AI Execution Engine (Single & Multi-Photo Batch)
+  // =========================================================================
+  async function executeVisionApiCall(base64Data, apiKey, model) {
+    const prompt = `Anda adalah sistem Vision AI OCR cerdas khusus membaca Buku Sortir Tembakau (catatan tulisan tangan pulpen & formulir gudang tembakau).
 Tugas Anda: Ekstrak seluruh baris data pada foto kertas berkas ini ke dalam format JSON Array murni.
 
 ATURAN STRUKTUR KOLOM & POLA TULISAN TANGAN:
@@ -854,182 +1058,153 @@ PENTING:
   {"no": 151, "gl": "", "gt": "", "nama": "BAHRUDIN", "grade": "20", "kg": "66.2", "brt_fix": "64", "ket": "BS - 20"}
 ]`;
 
-      // Helper function to query live available models from Google ModelService
-      async function fetchLiveModels(key, apiVer = 'v1beta') {
-        try {
-          const listRes = await fetch(`https://generativelanguage.googleapis.com/${apiVer}/models?key=${key}`);
-          if (listRes.ok) {
-            const listData = await listRes.json();
-            if (Array.isArray(listData.models)) {
-              return listData.models
-                .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-                .map(m => m.name.replace(/^models\//, ''));
-            }
-          }
-        } catch (e) {
-          console.warn(`[Vision AI] Gagal mengambil daftar model via ${apiVer}:`, e);
-        }
-        return [];
+    let initialModel = (model || '').replace(/^models\//, '').trim();
+    let modelCandidates = [
+      initialModel,
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash-002',
+      'gemini-1.5-flash-001',
+      'gemini-1.5-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-2.5-pro',
+      'gemini-1.5-pro'
+    ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+
+    const requestBody = JSON.stringify({
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.0,
+        maxOutputTokens: 4096
       }
+    });
 
-      // Build initial priority candidates
-      let initialModel = (model || '').replace(/^models\//, '').trim();
-      let modelCandidates = [
-        initialModel,
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-flash-002',
-        'gemini-1.5-flash-001',
-        'gemini-1.5-flash',
-        'gemini-2.0-flash-lite',
-        'gemini-2.5-pro',
-        'gemini-1.5-pro'
-      ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+    let response = null;
+    let lastError = null;
 
-      let response = null;
-      let workingModel = null;
-      let lastError = null;
+    for (let i = 0; i < modelCandidates.length; i++) {
+      const candidate = modelCandidates[i];
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody
+        });
 
-      const requestBody = JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.0,
-          maxOutputTokens: 4096
+        if (res.ok) {
+          response = res;
+          localStorage.setItem(MODEL_STORAGE, candidate);
+          break;
+        }
+
+        const errJson = await res.json().catch(() => ({}));
+        const errMsg = errJson.error?.message || `HTTP ${res.status}`;
+        lastError = new Error(errMsg);
+
+        if (res.status === 404 || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not supported')) {
+          continue;
+        } else {
+          throw lastError;
+        }
+      } catch (callErr) {
+        if (callErr.message && (callErr.message.includes('API_KEY_INVALID') || callErr.message.includes('quota') || callErr.message.includes('RESOURCE_EXHAUSTED'))) {
+          throw callErr;
+        }
+        lastError = callErr;
+      }
+    }
+
+    if (!response) {
+      throw lastError || new Error('Gagal menghubungi Gemini Vision API.');
+    }
+
+    const data = await response.json();
+    let textOut = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    textOut = textOut.replace(/^```[a-z]*\n/i, '').replace(/\n```$/, '').trim();
+
+    let parsedRows = [];
+    try {
+      parsedRows = JSON.parse(textOut);
+    } catch (parseErr) {
+      const lines = textOut.split('\n').filter(l => l.trim().length > 0);
+      lines.forEach((l, i) => {
+        const toks = l.split(/[\t,|]+/).map(t => t.trim()).filter(t => t);
+        if (toks.length >= 2) {
+          parsedRows.push({
+            no: i + 1,
+            gl: '',
+            gt: '',
+            nama: toks[0] || '',
+            grade: toks[1] || '58',
+            kg: toks[2] || '40.0',
+            brt_fix: '',
+            ket: ''
+          });
         }
       });
+    }
 
-      // Pass 1: Try candidate list on v1beta
-      for (let i = 0; i < modelCandidates.length; i++) {
-        const candidate = modelCandidates[i];
-        try {
-          if (i > 0) {
-            progressStatus.textContent = `Mencoba model AI: ${candidate}...`;
-          }
+    return Array.isArray(parsedRows) ? parsedRows : [];
+  }
 
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: requestBody
-          });
+  btnRunVisionAI.addEventListener('click', async () => {
+    const imagesToScan = uploadedImages.length > 0 
+      ? uploadedImages 
+      : (currentImageSrc ? [{ id: 'single', name: 'Foto Berkas', src: currentImageSrc, base64: currentImageSrc.split(',')[1] }] : []);
 
-          if (res.ok) {
-            response = res;
-            workingModel = candidate;
-            localStorage.setItem(MODEL_STORAGE, candidate);
-            console.log(`[Vision AI] Berhasil terhubung dengan model: ${candidate}`);
-            break;
-          }
+    if (imagesToScan.length === 0) {
+      showToast('Pilih atau foto berkas kertas terlebih dahulu', 'error');
+      return;
+    }
 
-          const errJson = await res.json().catch(() => ({}));
-          const errMsg = errJson.error?.message || `HTTP ${res.status}`;
-          lastError = new Error(errMsg);
+    const apiKey = getSavedApiKey();
+    if (!apiKey) {
+      btnOpenApiKeyModal.click();
+      showToast('Masukkan Google Gemini API Key Anda (100% Gratis)', 'info', 5000);
+      return;
+    }
 
-          if (res.status === 404 || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not supported')) {
-            console.warn(`[Vision AI] Model ${candidate} tidak tersedia (${errMsg}), mencoba alternatif...`);
-            continue;
-          } else {
-            throw lastError;
-          }
-        } catch (callErr) {
-          if (callErr.message && (callErr.message.includes('API_KEY_INVALID') || callErr.message.includes('quota') || callErr.message.includes('RESOURCE_EXHAUSTED'))) {
-            throw callErr;
-          }
-          lastError = callErr;
-        }
+    if (isScanning) return;
+    isScanning = true;
+    btnRunVisionAI.disabled = true;
+    progressBox.style.display = 'flex';
+
+    try {
+      const model = getSavedModel();
+      let allExtractedRows = [];
+      const totalImages = imagesToScan.length;
+
+      for (let i = 0; i < totalImages; i++) {
+        const currentImg = imagesToScan[i];
+        const progressPct = Math.round(((i + 0.3) / totalImages) * 90);
+        progressBarFill.style.width = `${progressPct}%`;
+        progressStatus.textContent = totalImages > 1 
+          ? `Membaca Foto ${i + 1} dari ${totalImages} (${currentImg.name})...` 
+          : `Vision AI sedang membaca tulisan tangan berkas...`;
+        progressSub.textContent = `Mengekstrak baris NO, NAMA, GRADE, KG, BRT, & BS`;
+
+        setActiveImage(i);
+        const rows = await executeVisionApiCall(currentImg.base64, apiKey, model);
+        allExtractedRows = [...allExtractedRows, ...rows];
       }
 
-      // Pass 2: If candidates failed, dynamically discover live models via ListModels API
-      if (!response) {
-        progressStatus.textContent = 'Mendeteksi model aktif pada API Key Anda...';
-        console.log('[Vision AI] Menghubungi ModelService.ListModels untuk mendeteksi model yang aktif...');
-        
-        let liveModels = await fetchLiveModels(apiKey, 'v1beta');
-        if (liveModels.length === 0) {
-          liveModels = await fetchLiveModels(apiKey, 'v1');
-        }
+      progressBarFill.style.width = '95%';
+      progressStatus.textContent = 'Menghitung rumus otomatis...';
 
-        if (liveModels.length > 0) {
-          console.log('[Vision AI] Model yang tersedia dari Google:', liveModels);
-          // Sort flash models first
-          liveModels.sort((a, b) => {
-            const aFlash = a.includes('flash') ? -1 : 1;
-            const bFlash = b.includes('flash') ? -1 : 1;
-            return aFlash - bFlash;
-          });
-
-          for (const liveModel of liveModels) {
-            try {
-              progressStatus.textContent = `Menghubungkan ke ${liveModel}...`;
-              const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${liveModel}:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: requestBody
-              });
-
-              if (res.ok) {
-                response = res;
-                workingModel = liveModel;
-                localStorage.setItem(MODEL_STORAGE, liveModel);
-                console.log(`[Vision AI] Sukses otomatis via ListModels: ${liveModel}`);
-                break;
-              }
-            } catch (errLoop) {
-              lastError = errLoop;
-            }
-          }
-        }
-      }
-
-      if (!response) {
-        throw lastError || new Error('Tidak dapat menemukan model Gemini Vision yang aktif untuk API Key ini. Pastikan Google Gemini API aktif di Google AI Studio.');
-      }
-
-      progressBarFill.style.width = '85%';
-      progressStatus.textContent = 'Memproses kalkulasi otomatis...';
-
-      const data = await response.json();
-      let textOut = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      textOut = textOut.replace(/^```[a-z]*\n/i, '').replace(/\n```$/, '').trim();
-
-      let parsedRows = [];
-      try {
-        parsedRows = JSON.parse(textOut);
-      } catch (parseErr) {
-        // Fallback simple line parsing if not json
-        console.warn('JSON parse fallback, trying line parsing:', textOut);
-        const lines = textOut.split('\n').filter(l => l.trim().length > 0);
-        lines.forEach((l, i) => {
-          const toks = l.split(/[\t,|]+/).map(t => t.trim()).filter(t => t);
-          if (toks.length >= 2) {
-            parsedRows.push({
-              no: i + 1,
-              gl: '',
-              gt: '',
-              nama: toks[0] || '',
-              grade: toks[1] || '58',
-              kg: toks[2] || '40.0',
-              brt_fix: '',
-              ket: ''
-            });
-          }
-        });
-      }
-
-      if (Array.isArray(parsedRows) && parsedRows.length > 0) {
-        tobaccoData = parsedRows.map((r, i) => {
+      if (allExtractedRows.length > 0) {
+        tobaccoData = allExtractedRows.map((r, i) => {
           const noVal = r.no ? Number(r.no) : (i + 1);
 
           let glVal = String(r.gl || '').trim().toLowerCase();
           let gtVal = String(r.gt || '').trim().toUpperCase();
           let namaVal = String(r.nama || '').trim();
 
-          // Auto-detect if GL / GT was placed in the nama column
           if (namaVal.toLowerCase() === 'gl' || /^gl\b/i.test(namaVal)) {
             glVal = 'gl';
             namaVal = namaVal.replace(/^gl\s*/i, '').trim();
@@ -1062,7 +1237,7 @@ PENTING:
         });
 
         renderGridTable();
-        showToast(`Vision AI berhasil mengekstrak ${tobaccoData.length} baris data Buku Sortir!`, 'success', 5000);
+        showToast(`Vision AI berhasil mengekstrak total ${tobaccoData.length} baris dari ${totalImages} foto berkas!`, 'success', 5000);
       } else {
         throw new Error('Tidak ada baris data terstruktur yang terdeteksi pada foto.');
       }

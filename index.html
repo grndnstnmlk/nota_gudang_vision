@@ -119,13 +119,13 @@
         <div id="panelSourcePhoto" class="source-panel active">
           <!-- Dropzone Box -->
           <div class="dropzone" id="dropzone">
-            <input type="file" id="fileInput" accept="image/*,.heic,.heif,.pdf" class="file-input" />
+            <input type="file" id="fileInput" accept="image/*,.heic,.heif,.pdf" multiple class="file-input" />
             <div class="dropzone-inner">
               <div class="upload-icon-pulse">
                 <i data-lucide="upload-cloud"></i>
               </div>
               <h3>Pilih atau Tarik Foto Berkas ke Sini</h3>
-              <p class="dropzone-sub">Mendukung Foto Kamera HP, JPG, PNG, dan iPhone HEIC</p>
+              <p class="dropzone-sub">Mendukung Multi-Foto (bisa pilih banyak berkas sekaligus), JPG, PNG, & HEIC</p>
               
               <div class="quick-actions">
                 <button type="button" class="btn-primary" id="btnCameraOpen">
@@ -138,16 +138,41 @@
             </div>
           </div>
 
-          <!-- Image Preview Box (Active after upload) -->
+          <!-- Image Preview & Interactive Checker Box (Active after upload) -->
           <div class="preview-container" id="previewContainer" style="display: none;">
-            <div class="preview-image-wrapper">
+            
+            <!-- Multi-Photo Thumbnail Strip -->
+            <div class="photo-gallery-strip" id="photoGalleryStrip">
+              <!-- Dynamically populated with uploaded photos -->
+            </div>
+
+            <!-- Preprocessing & Zoom Toolbar -->
+            <div class="image-viewer-toolbar">
+              <div class="toolbar-group">
+                <span class="toolbar-label"><i data-lucide="sliders"></i> Filter:</span>
+                <button type="button" class="btn-filter-mode active" data-filter="normal" title="Tampilan Asli">Normal</button>
+                <button type="button" class="btn-filter-mode" data-filter="high-contrast" title="Tingkatkan Kontras Tinta Pensil/Pulpen (B&W)">Kontras AI</button>
+                <button type="button" class="btn-filter-mode" data-filter="brighten" title="Terangkan Foto Gelap">Terang</button>
+                <button type="button" class="btn-filter-mode" data-filter="invert" title="Mode Negatif / Invert">Negatif</button>
+              </div>
+              <div class="toolbar-group">
+                <button type="button" class="btn-tool-icon" id="btnZoomIn" title="Zoom In (+)"><i data-lucide="zoom-in"></i></button>
+                <button type="button" class="btn-tool-icon" id="btnZoomOut" title="Zoom Out (-)"><i data-lucide="zoom-out"></i></button>
+                <button type="button" class="btn-tool-icon" id="btnZoomReset" title="Reset Zoom (100%)">1:1</button>
+                <button type="button" class="btn-tool-icon" id="btnRotateImg" title="Putar 90°"><i data-lucide="rotate-cw"></i></button>
+              </div>
+            </div>
+
+            <!-- Image Viewport with Pan & Zoom support -->
+            <div class="preview-image-wrapper" id="previewImageWrapper">
               <img id="previewImage" alt="Preview Foto Berkas Sortir" />
+              <div class="image-zoom-hint" id="zoomHint">Geser foto untuk melihat detail tulisan</div>
             </div>
 
             <div class="ocr-action-bar">
               <button id="btnRunVisionAI" class="btn-ai-scan">
                 <i data-lucide="sparkles"></i>
-                <span>Ekstrak dengan Vision AI (100% Akurat)</span>
+                <span id="btnAiScanText">Ekstrak dengan Vision AI (100% Akurat)</span>
               </button>
             </div>
           </div>
@@ -215,13 +240,16 @@
       </section>
 
       <!-- Right Column: Interactive Spreadsheet Grid & Execution Center -->
-      <section class="card table-card">
+      <section class="card table-card" id="tableCardSection">
         <div class="card-header">
           <div class="card-title">
             <i data-lucide="table-2"></i>
             <span>Tabel Buku Sortir (11 Kolom)</span>
           </div>
           <div class="card-header-actions">
+            <button id="btnToggleSideBySide" class="btn-secondary btn-sm" title="Tinjau Foto Berkas & Tabel Input Berdampingan">
+              <i data-lucide="columns-2"></i> Mode Berdampingan
+            </button>
             <button id="btnAddRow" class="btn-secondary btn-sm" title="Tambah Baris Baru">
               <i data-lucide="plus"></i> Tambah Baris
             </button>
