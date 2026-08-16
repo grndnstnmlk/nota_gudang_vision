@@ -407,8 +407,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const hrgRaw = c_harga !== -1 ? row[c_harga] : '';
         const ketRaw = c_ket !== -1 ? row[c_ket] : '';
 
+        // Check for companion BS block in columns L..R (0-indexed 11..17)
+        const markBsRaw = row[11] !== undefined ? row[11] : '';
+        const ketBsRaw = row[10] !== undefined ? row[10] : '';
+        const hasBsBlock = (String(markBsRaw).trim().toLowerCase() === 'bs' || String(ketBsRaw).trim().toLowerCase().includes('bs')) &&
+                           (row[13] !== undefined || row[14] !== undefined || row[15] !== undefined || row[16] !== undefined || row[17] !== undefined);
+        let bsInfo = null;
+        if (hasBsBlock) {
+          const bsGrd = row[13] !== undefined ? String(row[13]).trim() : '';
+          const bsHrgRaw = row[14] !== undefined ? row[14] : '';
+          const bsKgRaw = row[15] !== undefined ? row[15] : '';
+          const bsBrtRaw = row[16] !== undefined ? row[16] : '';
+          const bsNetRaw = row[17] !== undefined ? row[17] : '';
+          const bsHrg = (bsHrgRaw !== '' && !String(bsHrgRaw).startsWith('=')) ? Number(bsHrgRaw) : calc_harga(bsGrd, bsHrgRaw);
+          const bsBrt = (bsBrtRaw !== '' && !String(bsBrtRaw).startsWith('=')) ? Number(bsBrtRaw) : calc_brt(bsKgRaw);
+          const bsNet = (bsNetRaw !== '' && !String(bsNetRaw).startsWith('=')) ? Number(bsNetRaw) : calc_net(bsBrt);
+          if (bsHrg || bsBrt || bsNet) {
+            bsInfo = {
+              grade: bsGrd,
+              harga: bsHrg || 0,
+              kg: bsKgRaw,
+              brt: bsBrt || 0,
+              net: bsNet || 0
+            };
+          }
+        }
+
         // Ignore completely empty row
-        if (!noRaw && !gradeRaw && !kgRaw && !namaRaw && !ketRaw) continue;
+        if (!noRaw && !gradeRaw && !kgRaw && !namaRaw && !ketRaw && !bsInfo) continue;
 
         const brtVal = (brtFixRaw !== '' && !String(brtFixRaw).startsWith('=')) 
           ? Number(brtFixRaw) 
@@ -431,7 +457,8 @@ document.addEventListener('DOMContentLoaded', () => {
           brt: brtVal || '',
           brt_fix: (brtFixRaw !== '' && !String(brtFixRaw).startsWith('=')) ? String(brtFixRaw).trim() : '',
           net: netVal || '',
-          ket: String(ketRaw).trim()
+          ket: String(ketRaw).trim(),
+          bs_info: bsInfo
         });
       }
 
@@ -1117,69 +1144,102 @@ PENTING:
     const fromVal = inputNotaFrom ? parseInt(inputNotaFrom.value.trim(), 10) : NaN;
     const toVal = inputNotaTo ? parseInt(inputNotaTo.value.trim(), 10) : NaN;
 
-    let filtered = [];
-    let label = 'Semua Baris';
+    const mainRows = [];
+    const bsRows = [];
 
     if (!isNaN(fromVal) && !isNaN(toVal)) {
       const minNo = Math.min(fromVal, toVal);
       const maxNo = Math.max(fromVal, toVal);
-      filtered = tobaccoData.filter(r => {
+
+      tobaccoData.forEach(r => {
         const n = parseInt(r.no, 10);
-        return !isNaN(n) && n >= minNo && n <= maxNo;
+        if (!isNaN(n) && n >= minNo && n <= maxNo) {
+          mainRows.push(r);
+          if (r.bs_info) {
+            bsRows.push({
+              no: r.no,
+              gl: '',
+              gt: '',
+              nama: '',
+              grade: r.bs_info.grade,
+              brt: r.bs_info.brt,
+              net: r.bs_info.net,
+              harga: r.bs_info.harga,
+              bs: true,
+              label: 'BS'
+            });
+          }
+        }
       });
 
-      // Auto-detect farmer name for this range and bundle any separate BS row whose closest preceding farmer matches this range
-      const rangeInfo = detectInfo(filtered, minNo);
-      const farmerName = (rangeInfo.nama || '').trim().toLowerCase();
-
-      if (farmerName) {
-        const extraBsRows = [];
-        tobaccoData.forEach((r, idx) => {
-          const isBS = String(r.no || '').toLowerCase().includes('bs') || String(r.ket || '').toLowerCase().includes('bs');
-          if (!isBS) return;
-
-          const n = parseInt(r.no, 10);
-          const isInside = !isNaN(n) && n >= minNo && n <= maxNo;
-          if (isInside) return;
-
-          // Find the closest farmer name above this BS row
-          let closestFarmer = '';
-          for (let j = idx - 1; j >= 0; j--) {
-            const v = String(tobaccoData[j].nama || '').trim();
-            if (v && !isDateToken(v) && !['gl', 'gt'].includes(v.toLowerCase())) {
-              closestFarmer = v.toLowerCase();
-              break;
-            }
-          }
-
-          const rName = String(r.nama || '').toLowerCase();
-          const matches = (closestFarmer && (closestFarmer.includes(farmerName) || farmerName.includes(closestFarmer.replace(/[()]/g, '').trim()))) ||
-                          (rName && (rName.includes(farmerName) || farmerName.includes(rName.replace(/[()]/g, '').trim())));
-
-          if (matches) {
-            extraBsRows.push(r);
-          }
-        });
-        filtered = [...filtered, ...extraBsRows];
-      }
-
-      label = `No. ${minNo} s/d ${maxNo}`;
-      return { rows: filtered, from: minNo, to: maxNo, label };
+      const label = `No. ${minNo} s/d ${maxNo}`;
+      return { rows: [...mainRows, ...bsRows], from: minNo, to: maxNo, label };
     } else if (!isNaN(fromVal)) {
-      filtered = tobaccoData.filter(r => {
+      tobaccoData.forEach(r => {
         const n = parseInt(r.no, 10);
-        return isNaN(n) ? true : n >= fromVal;
+        if (isNaN(n) || n >= fromVal) {
+          mainRows.push(r);
+          if (r.bs_info) {
+            bsRows.push({
+              no: r.no,
+              gl: '',
+              gt: '',
+              nama: '',
+              grade: r.bs_info.grade,
+              brt: r.bs_info.brt,
+              net: r.bs_info.net,
+              harga: r.bs_info.harga,
+              bs: true,
+              label: 'BS'
+            });
+          }
+        }
       });
-      return { rows: filtered, from: fromVal, to: null, label: `Mulai No. ${fromVal}` };
+      return { rows: [...mainRows, ...bsRows], from: fromVal, to: null, label: `Mulai No. ${fromVal}` };
     } else if (!isNaN(toVal)) {
-      filtered = tobaccoData.filter(r => {
+      tobaccoData.forEach(r => {
         const n = parseInt(r.no, 10);
-        return isNaN(n) ? true : n <= toVal;
+        if (isNaN(n) || n <= toVal) {
+          mainRows.push(r);
+          if (r.bs_info) {
+            bsRows.push({
+              no: r.no,
+              gl: '',
+              gt: '',
+              nama: '',
+              grade: r.bs_info.grade,
+              brt: r.bs_info.brt,
+              net: r.bs_info.net,
+              harga: r.bs_info.harga,
+              bs: true,
+              label: 'BS'
+            });
+          }
+        }
       });
-      return { rows: filtered, from: null, to: toVal, label: `Sampai No. ${toVal}` };
+      return { rows: [...mainRows, ...bsRows], from: null, to: toVal, label: `Sampai No. ${toVal}` };
     }
 
-    return { rows: [...tobaccoData], from: null, to: null, label: 'Semua Baris' };
+    // Default: all rows
+    tobaccoData.forEach(r => {
+      mainRows.push(r);
+      if (r.bs_info) {
+        bsRows.push({
+          no: r.no,
+          gl: '',
+          gt: '',
+          nama: '',
+          grade: r.bs_info.grade,
+          brt: r.bs_info.brt,
+          net: r.bs_info.net,
+          harga: r.bs_info.harga,
+          bs: true,
+          label: 'BS'
+        });
+      }
+    });
+
+    return { rows: [...mainRows, ...bsRows], from: null, to: null, label: 'Semua Baris' };
   }
 
   const BULAN_INDO = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -1224,6 +1284,7 @@ PENTING:
   function detectInfo(rows, startNo) {
     const items = [];
     rows.forEach(r => {
+      if (r.bs) return; // Skip companion BS rows
       const v = String(r.nama || '').trim();
       if (v && !['gl', 'gt'].includes(v.toLowerCase())) {
         items.push({ no: r.no, text: v, isDate: isDateToken(v) });
@@ -1238,13 +1299,13 @@ PENTING:
     if (dateIdx !== -1) {
       tanggal = formatIndoDate(items[dateIdx].text);
       for (let i = dateIdx - 1; i >= 0; i--) {
-        if (!items[i].isDate) { nama = items[i].text; break; }
+        if (!items[i].isDate && items[i].text) { nama = items[i].text; break; }
       }
       for (let i = dateIdx + 1; i < items.length; i++) {
-        if (!items[i].isDate) { alamat = items[i].text; break; }
+        if (!items[i].isDate && items[i].text) { alamat = items[i].text; break; }
       }
     } else {
-      const texts = items.filter(item => !item.isDate);
+      const texts = items.filter(item => !item.isDate && item.text);
       if (texts.length > 0) nama = texts[0].text;
       if (texts.length > 1) alamat = texts[1].text;
     }
@@ -1257,13 +1318,6 @@ PENTING:
           nama = v;
           break;
         }
-      }
-    }
-
-    if (alamat && (alamat.toLowerCase() === nama.toLowerCase() || isDateToken(alamat) || alamat.includes(nama))) {
-      // If alamat is identical to nama or duplicate, empty it unless it's a real place like Pegantenan / Kadur
-      if (!['pegantenan', 'kadur', 'larangan', 'pamekasan', 'ganding', 'gulen'].includes(alamat.toLowerCase())) {
-        alamat = '';
       }
     }
 
@@ -1287,7 +1341,7 @@ PENTING:
       totalNet += n;
       sumJumlah += (n * h);
 
-      if (String(r.gt || '').toUpperCase().trim() === 'GT' || String(r.ket || '').toUpperCase().includes('GT')) {
+      if (!r.bs && (String(r.gt || '').toUpperCase().trim() === 'GT' || String(r.ket || '').toUpperCase().includes('GT'))) {
         gtCount++;
       }
     });
@@ -1297,7 +1351,7 @@ PENTING:
     const autoTanggal = info.tanggal;
     const autoAlamat = info.alamat;
 
-    const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
+    const pphVal = Math.ceil((sumJumlah * 0.01) / 5000) * 5000;
     const koliVal = rows.length * 5000;
     const gtVal = gtCount * 65000;
     const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
@@ -1611,18 +1665,16 @@ PENTING:
           const rowObj = ws.getRow(curRow);
           rowObj.height = 16;
 
-          let noGud = String(r.no || (idx + 1));
-          const ketStr = String(r.ket || '').toLowerCase();
-          const noStr = String(r.no || '').toLowerCase();
-          const isBS = ketStr.includes('bs') || noStr.includes('bs');
-
-          if (isBS) {
+          let noGud = '';
+          if (r.bs) {
             noGud = 'BS';
           } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
             noGud = `GT ${r.no}`;
             gtCount++;
           } else if (String(r.gl || '').toLowerCase().trim() === 'gl') {
             noGud = `GL ${r.no}`;
+          } else {
+            noGud = String(r.no || (idx + 1));
           }
 
           const brt = Number(r.brt) || 0;
@@ -1667,11 +1719,11 @@ PENTING:
         const dataEnd = dataStart + filteredRows.length - 1;
         const rJml = dataEnd + 1;
         const rPph = rJml + 1;
-        const rKoli = gtCount > 0 ? rPph + 2 : rPph + 1;
         const rGt = gtCount > 0 ? rPph + 1 : null;
+        const rKoli = gtCount > 0 ? rPph + 2 : rPph + 1;
         const rTot = gtCount > 0 ? rKoli + 1 : rKoli + 1;
 
-        const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
+        const pphVal = Math.ceil((sumJumlah * 0.01) / 5000) * 5000;
         const koliVal = filteredRows.length * 5000;
         const gtVal = gtCount * 65000;
         const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
@@ -1696,7 +1748,7 @@ PENTING:
         };
 
         addFooterRow(rJml, 'JUMLAH ', `SUM(E${dataStart}:E${dataEnd})`, sumJumlah, '#,##0');
-        addFooterRow(rPph, 'PPH 0,5%', `CEILING(E${rJml}*0.005,5000)`, pphVal, '#,##0');
+        addFooterRow(rPph, 'PPH 1%', `CEILING(E${rJml}*0.01,5000)`, pphVal, '#,##0');
         if (gtCount > 0) {
           addFooterRow(rGt, 'GT', `65000*COUNTIF(A${dataStart}:A${dataEnd},"GT*")`, gtVal, '"Rp"#,##0');
         }
@@ -1735,18 +1787,16 @@ PENTING:
 
     filteredRows.forEach((r, idx) => {
       const curRow = dataStartRow + idx;
-      let noGud = String(r.no || (idx + 1));
-      const ketStr = String(r.ket || '').toLowerCase();
-      const noStr = String(r.no || '').toLowerCase();
-      const isBS = ketStr.includes('bs') || noStr.includes('bs');
-
-      if (isBS) {
+      let noGud = '';
+      if (r.bs) {
         noGud = 'BS';
       } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
         noGud = `GT ${r.no}`;
         gtCount++;
       } else if (String(r.gl || '').toLowerCase().trim() === 'gl') {
         noGud = `GL ${r.no}`;
+      } else {
+        noGud = String(r.no || (idx + 1));
       }
 
       const brt = Number(r.brt) || 0;
@@ -1770,12 +1820,12 @@ PENTING:
     const jumlahRow = dataEndRow + 1;
     const pphRow = jumlahRow + 1;
     const koliRow = pphRow + 1;
-    const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
+    const pphVal = Math.ceil((sumJumlah * 0.01) / 5000) * 5000;
     const koliVal = filteredRows.length * 5000;
     const gtVal = gtCount * 65000;
 
     wsData.push(['', '', '', 'JUMLAH', { t: 'n', f: `SUM(E${dataStartRow}:E${dataEndRow})`, v: sumJumlah }]);
-    wsData.push(['', '', '', 'PPH 0,5%', { t: 'n', f: `CEILING(E${jumlahRow}*0.005, 5000)`, v: pphVal }]);
+    wsData.push(['', '', '', 'PPH 1%', { t: 'n', f: `CEILING(E${jumlahRow}*0.01, 5000)`, v: pphVal }]);
     wsData.push(['', '', '', 'Koli', { t: 'n', f: `COUNTA(A${dataStartRow}:A${dataEndRow})*5000`, v: koliVal }]);
 
     let totalFormula = `E${jumlahRow}-E${pphRow}-E${koliRow}`;
@@ -1834,18 +1884,16 @@ PENTING:
 
     let rowsHtml = '';
     filteredRows.forEach((r, idx) => {
-      let noGud = String(r.no || (idx + 1));
-      const ketStr = String(r.ket || '').toLowerCase();
-      const noStr = String(r.no || '').toLowerCase();
-      const isBS = ketStr.includes('bs') || noStr.includes('bs');
-
-      if (isBS) {
+      let noGud = '';
+      if (r.bs) {
         noGud = 'BS';
       } else if (String(r.gt || '').toUpperCase().trim() === 'GT') {
         noGud = `GT ${r.no}`;
         gtCount++;
       } else if (String(r.gl || '').toLowerCase().trim() === 'gl') {
         noGud = `GL ${r.no}`;
+      } else {
+        noGud = String(r.no || (idx + 1));
       }
 
       const brt = Number(r.brt) || 0;
@@ -1868,7 +1916,7 @@ PENTING:
       `;
     });
 
-    const pphVal = Math.ceil((sumJumlah * 0.005) / 5000) * 5000;
+    const pphVal = Math.ceil((sumJumlah * 0.01) / 5000) * 5000;
     const koliVal = filteredRows.length * 5000;
     const gtVal = gtCount * 65000;
     const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
@@ -1926,7 +1974,7 @@ PENTING:
           </tr>
           <tr class="footer-row">
             <td colspan="3" style="border: none !important;"></td>
-            <td class="align-right">PPH 0,5%</td>
+            <td class="align-right">PPH 1%</td>
             <td class="align-right">${pphVal.toLocaleString('id-ID')}</td>
           </tr>
           <tr class="footer-row">
