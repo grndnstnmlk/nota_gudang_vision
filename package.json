@@ -1,0 +1,23 @@
+{
+  "name": "nota-vision-ai",
+  "version": "1.0.0",
+  "description": "Vision AI — Generator Nota & Buku Sortir Tembakau",
+  "main": "app.js",
+  "scripts": {
+    "test": "node test_comprehensive.js",
+    "test:calc": "node test_tobacco_calc.js",
+    "lint:syntax": "node -c js/core/tobacco-calc.js js/services/vision-ai.js js/exporters/excel-export.js app.js",
+    "check": "npm run lint:syntax && npm run test"
+  },
+  "keywords": [
+    "vision-ai",
+    "gemini",
+    "ocr",
+    "tobacco",
+    "exceljs",
+    "sheetjs",
+    "nota"
+  ],
+  "author": "USER",
+  "license": "MIT"
+}

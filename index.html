@@ -56,6 +56,10 @@
           <span id="apiKeyStatusLabel">Atur API Key Vision</span>
         </button>
 
+        <button id="btnOpenShortcutsModal" class="btn-icon" aria-label="Pintasan Keyboard" title="Pintasan Keyboard (F1 / ?)">
+          <i data-lucide="keyboard"></i>
+        </button>
+
         <button id="themeToggle" class="btn-icon" aria-label="Ganti Tema" title="Ganti Tema">
           <i data-lucide="sun" class="sun-icon"></i>
           <i data-lucide="moon" class="moon-icon"></i>
@@ -603,6 +607,65 @@
     </div>
   </div>
 
+  <!-- Modal: Panduan Pintasan Keyboard (Shortcuts Help) -->
+  <div class="modal" id="shortcutsModal">
+    <div class="modal-backdrop" id="shortcutsModalBackdrop"></div>
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h3><i data-lucide="keyboard"></i> Pintasan Keyboard Cepat</h3>
+        <button class="btn-icon-sm" id="btnCloseShortcutsModal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Gunakan tombol pintasan berikut untuk mempercepat input data & navigasi:</p>
+        
+        <div class="shortcuts-grid">
+          <div class="shortcut-group">
+            <h4 class="shortcut-group-title"><i data-lucide="table"></i> Navigasi Tabel</h4>
+            <div class="shortcut-item">
+              <span>Pindah Sel (Atas / Bawah / Kiri / Kanan)</span>
+              <div class="shortcut-keys"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></div>
+            </div>
+            <div class="shortcut-item">
+              <span>Pindah ke Kolom Berikutnya</span>
+              <div class="shortcut-keys"><kbd>Tab</kbd></div>
+            </div>
+            <div class="shortcut-item">
+              <span>Pindah ke Baris Bawahnya</span>
+              <div class="shortcut-keys"><kbd>Enter</kbd></div>
+            </div>
+            <div class="shortcut-item">
+              <span>Hapus Baris Terpilih</span>
+              <div class="shortcut-keys"><kbd>Alt</kbd> + <kbd>Del</kbd></div>
+            </div>
+          </div>
+
+          <div class="shortcut-group">
+            <h4 class="shortcut-group-title"><i data-lucide="sparkles"></i> Aksi & Viewer</h4>
+            <div class="shortcut-item">
+              <span>Simpan Snapshot Manual</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></div>
+            </div>
+            <div class="shortcut-item">
+              <span>Buka Pratinjau Cetak Nota</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>P</kbd></div>
+            </div>
+            <div class="shortcut-item">
+              <span>Buka Panduan Pintasan</span>
+              <div class="shortcut-keys"><kbd>F1</kbd> atau <kbd>?</kbd></div>
+            </div>
+            <div class="shortcut-item">
+              <span>Tutup Modal Aktif</span>
+              <div class="shortcut-keys"><kbd>Esc</kbd></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCloseShortcutsModalBtn" class="btn-primary">Mengerti</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
@@ -612,6 +675,9 @@
   </footer>
 
   <script src="logo_data.js"></script>
+  <script src="js/core/tobacco-calc.js"></script>
+  <script src="js/services/vision-ai.js"></script>
+  <script src="js/exporters/excel-export.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

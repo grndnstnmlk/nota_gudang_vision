@@ -2337,24 +2337,28 @@ PENTING:
     const dataEndRow = dataStartRow + filteredRows.length - 1;
     const jumlahRow = dataEndRow + 1;
     const pphRow = jumlahRow + 1;
-    const koliRow = pphRow + 1;
-    const pphVal = Math.ceil((sumJumlah * 0.01) / 5000) * 5000;
+    const gtRow = gtCount > 0 ? pphRow + 1 : null;
+    const koliRow = gtCount > 0 ? pphRow + 2 : pphRow + 1;
+
+    const pphRate = selectNotaPph ? (parseFloat(selectNotaPph.value) || 0) : 0.01;
+    const pphVal = pphRate > 0 ? Math.ceil((sumJumlah * pphRate) / 5000) * 5000 : 0;
+    const pphLabel = pphRate === 0.005 ? 'PPH 0.5%' : (pphRate === 0.01 ? 'PPH 1%' : 'PPH 0%');
+    const pphFormula = pphRate > 0 ? `CEILING(E${jumlahRow}*${pphRate}, 5000)` : `0`;
+
     const koliVal = filteredRows.length * 5000;
     const gtVal = gtCount * 65000;
+    const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
 
     wsData.push(['', '', '', 'JUMLAH', { t: 'n', f: `SUM(E${dataStartRow}:E${dataEndRow})`, v: sumJumlah }]);
-    wsData.push(['', '', '', 'PPH 1%', { t: 'n', f: `CEILING(E${jumlahRow}*0.01, 5000)`, v: pphVal }]);
+    wsData.push(['', '', '', pphLabel, { t: 'n', f: pphFormula, v: pphVal }]);
+    if (gtCount > 0) {
+      wsData.push(['', '', '', 'GT', { t: 'n', f: `65000*COUNTIF(A${dataStartRow}:A${dataEndRow}, "GT*")`, v: gtVal }]);
+    }
     wsData.push(['', '', '', 'Koli', { t: 'n', f: `COUNTA(A${dataStartRow}:A${dataEndRow})*5000`, v: koliVal }]);
 
-    let totalFormula = `E${jumlahRow}-E${pphRow}-E${koliRow}`;
-    let totalBersih = sumJumlah - pphVal - koliVal;
-
-    if (gtCount > 0) {
-      const gtRow = koliRow + 1;
-      wsData.push(['', '', '', 'GT', { t: 'n', f: `COUNTIF(A${dataStartRow}:A${dataEndRow}, "GT*")*65000`, v: gtVal }]);
-      totalFormula += `-E${gtRow}`;
-      totalBersih -= gtVal;
-    }
+    const totalFormula = gtCount > 0
+      ? `E${jumlahRow}-E${koliRow}-E${gtRow}-E${pphRow}`
+      : `E${jumlahRow}-E${koliRow}-E${pphRow}`;
 
     wsData.push(['', '', '', 'TOTAL', { t: 'n', f: totalFormula, v: totalBersih }]);
 
@@ -3165,6 +3169,62 @@ PENTING:
       }
     });
   }
+
+  // =========================================================================
+  // Keyboard Shortcuts Modal & Global Key Listeners
+  // =========================================================================
+  const btnOpenShortcutsModal = document.getElementById('btnOpenShortcutsModal');
+  const shortcutsModal = document.getElementById('shortcutsModal');
+  const shortcutsModalBackdrop = document.getElementById('shortcutsModalBackdrop');
+  const btnCloseShortcutsModal = document.getElementById('btnCloseShortcutsModal');
+  const btnCloseShortcutsModalBtn = document.getElementById('btnCloseShortcutsModalBtn');
+
+  function openShortcutsModal() {
+    if (shortcutsModal) {
+      shortcutsModal.classList.add('active');
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  function closeShortcutsModal() {
+    if (shortcutsModal) shortcutsModal.classList.remove('active');
+  }
+
+  if (btnOpenShortcutsModal) btnOpenShortcutsModal.addEventListener('click', openShortcutsModal);
+  if (btnCloseShortcutsModal) btnCloseShortcutsModal.addEventListener('click', closeShortcutsModal);
+  if (btnCloseShortcutsModalBtn) btnCloseShortcutsModalBtn.addEventListener('click', closeShortcutsModal);
+  if (shortcutsModalBackdrop) shortcutsModalBackdrop.addEventListener('click', closeShortcutsModal);
+
+  // Global Keyboard Shortcuts (F1, Ctrl+S, Ctrl+P, Escape)
+  window.addEventListener('keydown', (e) => {
+    // F1 or ? (without input active) -> Open Shortcuts
+    if (e.key === 'F1' || (e.key === '?' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA')) {
+      e.preventDefault();
+      openShortcutsModal();
+    }
+
+    // Ctrl+S / Cmd+S -> Manual Snapshot Save
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      triggerAutoSave();
+      saveManualSnapshot();
+      showToast('Sesi dan data tabel berhasil disimpan!', 'success', 2500);
+    }
+
+    // Ctrl+P / Cmd+P -> Open Print Nota Modal
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+      const btnOpenPrintNota = document.getElementById('btnOpenPrintNota');
+      if (btnOpenPrintNota && !printNotaModal.classList.contains('active')) {
+        e.preventDefault();
+        btnOpenPrintNota.click();
+      }
+    }
+
+    // Escape -> Close any active modal
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+    }
+  });
 
   // Restore previous session on application launch if available
   restoreActiveSession();

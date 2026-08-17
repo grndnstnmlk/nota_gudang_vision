@@ -251,7 +251,7 @@ def build_nota_sheet(wb,title,rows,nama,alamat,tanggal):
         e.number_format="#,##0"; e.border=Border(top=top_ef,bottom=THIN,left=THIN,right=THIN)
         f=ws.cell(r,c_jml,f"={L_net}{r}*{L_hrg}{r}"); f.font=_f(FONT_CELL); f.alignment=Alignment(horizontal="center")
         f.number_format="#,##0"; f.border=Border(top=top_ef,bottom=THIN,left=THIN,right=THIN)
-    sum_formula="="+"+".join(f"{L_jml}{first+i}" for i in range(len(rows)))
+    sum_formula = f"=SUM({L_jml}{first}:{L_jml}{last})"
     # baris GL terakhir (untuk COUNTIF GT) = sebelum baris BS (kalau ada baris BS di akhir)
     n_bs=sum(1 for rr in rows if rr.get("bs"))
     last_gl=last-n_bs if n_bs else last
