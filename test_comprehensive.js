@@ -132,9 +132,17 @@ describe('3. Deteksi Identitas Nota (Nama, Tanggal, Alamat)', () => {
 describe('4. Invarian Perhitungan Finansial Nota', () => {
   it('PPH 1% selalu dibulatkan ke atas kelipatan Rp 5.000', () => {
     const calcPph = (jml, rate = 0.01) => Math.ceil((jml * rate) / 5000) * 5000;
-    assert.strictEqual(calcPph(1000000), 10000);
-    assert.strictEqual(calcPph(1000001), 15000); // 10.000,01 -> 15.000
-    assert.strictEqual(calcPph(4836000), 50000); // 48.360 -> 50.000
+    assert.strictEqual(calcPph(1000000, 0.01), 10000);
+    assert.strictEqual(calcPph(1000001, 0.01), 15000); // 10.000,01 -> 15.000
+    assert.strictEqual(calcPph(4836000, 0.01), 50000); // 48.360 -> 50.000
+  });
+
+  it('PPH 0.5% (0.005) dihitung akurat dengan pembulatan kelipatan Rp 5.000', () => {
+    const calcPph = (jml, rate = 0.005) => Math.ceil((jml * rate) / 5000) * 5000;
+    // Skenario 11.950.000 * 0.005 = 59.750 -> 60.000
+    assert.strictEqual(calcPph(11950000, 0.005), 60000);
+    assert.strictEqual(calcPph(1000000, 0.005), 5000);
+    assert.strictEqual(calcPph(2000000, 0.005), 10000);
   });
 
   it('Total Bersih = JUMLAH - PPH - KOLI - GT', () => {

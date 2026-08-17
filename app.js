@@ -2438,7 +2438,9 @@ PENTING:
       `;
     });
 
-    const pphVal = Math.ceil((sumJumlah * 0.01) / 5000) * 5000;
+    const pphRate = selectNotaPph ? (parseFloat(selectNotaPph.value) || 0) : 0.01;
+    const pphVal = pphRate > 0 ? Math.ceil((sumJumlah * pphRate) / 5000) * 5000 : 0;
+    const pphLabel = pphRate === 0.005 ? 'PPH 0,5%' : (pphRate === 0.01 ? 'PPH 1%' : 'PPH 0%');
     const koliVal = filteredRows.length * 5000;
     const gtVal = gtCount * 65000;
     const totalBersih = sumJumlah - pphVal - koliVal - gtVal;
@@ -2496,7 +2498,7 @@ PENTING:
           </tr>
           <tr class="footer-row">
             <td colspan="3" style="border: none !important;"></td>
-            <td class="align-right">${selectNotaPph && selectNotaPph.value === '0.005' ? 'PPH 0,5%' : (selectNotaPph && selectNotaPph.value === '0' ? 'PPH 0%' : 'PPH 1%')}</td>
+            <td class="align-right">${pphLabel}</td>
             <td class="align-right">${pphVal.toLocaleString('id-ID')}</td>
           </tr>
           <tr class="footer-row">
