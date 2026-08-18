@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getSavedModel() {
     const saved = localStorage.getItem(MODEL_STORAGE);
-    if (!saved || saved === 'gemini-1.5-flash') {
+    if (!saved || saved.startsWith('gemini-1.5') || saved.startsWith('gemini-1.0') || saved === 'gemini-2.0-flash-lite') {
       return 'gemini-2.5-flash';
     }
     return saved;
@@ -230,6 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.textContent = m + (idx === 0 ? ' (Direkomendasikan)' : '');
             modelSelect.appendChild(opt);
           });
+          if (models.length > 0) {
+            modelSelect.value = models[0];
+            localStorage.setItem(MODEL_STORAGE, models[0]);
+          }
 
           showToast(`Berhasil menemukan ${models.length} model Google Gemini aktif!`, 'success');
         } else {
@@ -1143,17 +1147,18 @@ PENTING:
 ]`;
 
     let initialModel = (model || '').replace(/^models\//, '').trim();
+    if (!initialModel || initialModel.startsWith('gemini-1.5') || initialModel.startsWith('gemini-1.0')) {
+      initialModel = 'gemini-2.5-flash';
+    }
+
     let modelCandidates = [
       initialModel,
       'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-flash-002',
-      'gemini-1.5-flash-001',
-      'gemini-1.5-flash',
-      'gemini-2.0-flash-lite',
+      'gemini-2.5-flash-lite',
       'gemini-2.5-pro',
-      'gemini-1.5-pro'
+      'gemini-3.7-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
     ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
 
     const requestBody = JSON.stringify({
@@ -1204,8 +1209,35 @@ PENTING:
       }
     }
 
+    // If static candidates all failed with not found, dynamically probe Google AI available models
     if (!response) {
-      throw lastError || new Error('Gagal menghubungi Gemini Vision API.');
+      try {
+        const liveModels = await fetchAvailableModelsFromGoogle(apiKey);
+        for (const candidate of liveModels) {
+          if (modelCandidates.includes(candidate)) continue;
+          try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: requestBody
+            });
+
+            if (res.ok) {
+              response = res;
+              localStorage.setItem(MODEL_STORAGE, candidate);
+              break;
+            }
+          } catch (e) {
+            console.warn(`Dynamic fallback failed for ${candidate}:`, e);
+          }
+        }
+      } catch (discErr) {
+        console.warn('Failed to dynamically discover models:', discErr);
+      }
+    }
+
+    if (!response) {
+      throw lastError || new Error('Gagal menghubungi Gemini Vision API. Pastikan API Key valid.');
     }
 
     const data = await response.json();

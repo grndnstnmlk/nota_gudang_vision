@@ -42,45 +42,59 @@ PENTING:
     const cleanBase64 = base64Data.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
     const actualMime = mimeType || 'image/jpeg';
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    let cleanModel = (modelName || '').replace(/^models\//, '').trim();
+    if (!cleanModel || cleanModel.startsWith('gemini-1.5') || cleanModel.startsWith('gemini-1.0')) {
+      cleanModel = 'gemini-2.5-flash';
+    }
 
-    const requestBody = {
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: 'Baca dan ekstrak seluruh baris data sortir tembakau dari foto berkas ini secara lengkap dan akurat dalam format JSON array.' },
-            {
-              inline_data: {
-                mime_type: actualMime,
-                data: cleanBase64
-              }
-            }
-          ]
+    const modelCandidates = [
+      cleanModel,
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-2.5-pro',
+      'gemini-3.7-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+
+    let response = null;
+    let lastError = null;
+
+    for (let i = 0; i < modelCandidates.length; i++) {
+      const candidate = modelCandidates[i];
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(candidate)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (res.ok) {
+          response = res;
+          break;
         }
-      ],
-      system_instruction: {
-        parts: [{ text: SYSTEM_INSTRUCTION }]
-      },
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 8192,
-        responseMimeType: 'application/json'
+
+        const errJson = await res.json().catch(() => ({}));
+        const errMsg = errJson.error ? errJson.error.message : `HTTP Error ${res.status}: ${res.statusText}`;
+        lastError = new Error(`Gagal memproses Vision AI: ${errMsg}`);
+
+        if (res.status === 404 || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not supported')) {
+          continue;
+        } else {
+          throw lastError;
+        }
+      } catch (callErr) {
+        if (callErr.message && (callErr.message.includes('API_KEY_INVALID') || callErr.message.includes('quota') || callErr.message.includes('RESOURCE_EXHAUSTED'))) {
+          throw callErr;
+        }
+        lastError = callErr;
       }
-    };
+    }
 
-    onProgress('Memproses OCR & pengenalan tulisan tangan AI...', 50);
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errJson = await response.json().catch(() => ({}));
-      const errMsg = errJson.error ? errJson.error.message : `HTTP Error ${response.status}: ${response.statusText}`;
-      throw new Error(`Gagal memproses Vision AI: ${errMsg}`);
+    if (!response) {
+      throw lastError || new Error('Gagal menghubungi Google Gemini Vision API.');
     }
 
     onProgress('Memformat data hasil ekstraksi...', 80);
